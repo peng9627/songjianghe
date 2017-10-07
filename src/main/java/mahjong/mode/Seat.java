@@ -19,6 +19,7 @@ public class Seat {
     private List<Integer> pengCards = new ArrayList<>();             //碰牌
     private List<Integer> anGangCards = new ArrayList<>();           //杠的牌
     private List<Integer> mingGangCards = new ArrayList<>();         //杠的牌
+    private List<Integer> xfGangCards = new ArrayList<>();           //旋风杠的牌
     private List<Integer> chiCards = new ArrayList<>();              //吃的牌
     private List<Integer> playedCards = new ArrayList<>();           //出牌
     private int score;                          //输赢分数
@@ -30,6 +31,7 @@ public class Seat {
     private GameResult cardResult;              //结算
     private List<GameResult> mingGangResult = new ArrayList<>();        //明杠
     private List<GameResult> anGangResult = new ArrayList<>();        //暗杠
+    private List<GameResult> xfGangResult = new ArrayList<>();        //旋风杠
 
     private int huCount;//胡牌次数
     private int zimoCount; //自摸次数
@@ -39,6 +41,14 @@ public class Seat {
 
     private String ip;
     private int gameCount;
+    private List<Integer> chiTemp = new ArrayList<>();
+
+    private List<Integer> canChi = new ArrayList<>();
+    private List<Integer> canPeng = new ArrayList<>();
+    private List<Integer> canGang = new ArrayList<>();
+    private List<Integer> canHu = new ArrayList<>();
+    private List<Integer> canXfGang = new ArrayList<>();
+    private boolean win;
 
     public int getSeatNo() {
         return seatNo;
@@ -118,6 +128,14 @@ public class Seat {
 
     public void setMingGangCards(List<Integer> mingGangCards) {
         this.mingGangCards = mingGangCards;
+    }
+
+    public List<Integer> getXfGangCards() {
+        return xfGangCards;
+    }
+
+    public void setXfGangCards(List<Integer> xfGangCards) {
+        this.xfGangCards = xfGangCards;
     }
 
     public List<Integer> getChiCards() {
@@ -208,6 +226,14 @@ public class Seat {
         this.anGangResult = anGangResult;
     }
 
+    public List<GameResult> getXfGangResult() {
+        return xfGangResult;
+    }
+
+    public void setXfGangResult(List<GameResult> xfGangResult) {
+        this.xfGangResult = xfGangResult;
+    }
+
     public int getHuCount() {
         return huCount;
     }
@@ -264,12 +290,69 @@ public class Seat {
         this.gameCount = gameCount;
     }
 
+    public List<Integer> getChiTemp() {
+        return chiTemp;
+    }
+
+    public void setChiTemp(List<Integer> chiTemp) {
+        this.chiTemp = chiTemp;
+    }
+
+    public List<Integer> getCanChi() {
+        return canChi;
+    }
+
+    public void setCanChi(List<Integer> canChi) {
+        this.canChi = canChi;
+    }
+
+    public List<Integer> getCanPeng() {
+        return canPeng;
+    }
+
+    public void setCanPeng(List<Integer> canPeng) {
+        this.canPeng = canPeng;
+    }
+
+    public List<Integer> getCanGang() {
+        return canGang;
+    }
+
+    public void setCanGang(List<Integer> canGang) {
+        this.canGang = canGang;
+    }
+
+    public List<Integer> getCanHu() {
+        return canHu;
+    }
+
+    public void setCanHu(List<Integer> canHu) {
+        this.canHu = canHu;
+    }
+
+    public List<Integer> getCanXfGang() {
+        return canXfGang;
+    }
+
+    public void setCanXfGang(List<Integer> canXfGang) {
+        this.canXfGang = canXfGang;
+    }
+
+    public boolean isWin() {
+        return win;
+    }
+
+    public void setWin(boolean win) {
+        this.win = win;
+    }
+
     public void clear() {
         initialCards.clear();
         cards.clear();
         pengCards.clear();
         anGangCards.clear();
         mingGangCards.clear();
+        xfGangCards.clear();
         chiCards.clear();
         playedCards.clear();
         ready = false;
@@ -277,5 +360,10 @@ public class Seat {
         cardResult = null;
         mingGangResult.clear();
         anGangResult.clear();
+        canChi.clear();
+        canGang.clear();
+        canPeng.clear();
+        canHu.clear();
+        canXfGang.clear();
     }
 }

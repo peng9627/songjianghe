@@ -21,4 +21,9 @@ public class Constant {
     public static int matchEliminateScoreTimeout = 30000;
     public static int matchEliminateScore = 100;
 
+    public static int channelPoolCount = 5;
+    public static String logicServiceIp = "192.168.1.9";
+    public static int logicServicePort = 23344;
+    public static int channelPoolCheckTime = 10000;
+
 }

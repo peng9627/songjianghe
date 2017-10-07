@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "mahjong.mode.proto";
+
+package wh_majong;
+
+enum SjSettlePatterns {
+    ANTING = 0; //暗听
+    PENGPENGHU = 1; //碰碰胡
+    LIMEN = 2; //立门
+    HUNYISE = 3; //混一色
+    SHOUBAYI = 4; //手把一
+    GANGHOUKAI = 5; //杠后开
+    QINGYISE = 6; //清一色
+    YIBANGAO = 7; //一般高
+    SIGUIYI = 8; //四归一
+    SHISANYAO = 9; //十三幺
+    SANJIAQING = 10; //三家清
+    SIJIAQING = 11; //四家清
+    QIDUI = 12; //七对
+    DIANPAO = 13; //点炮
+    ZIMO = 14; //自摸
+    ZUOZHUANG = 15; //坐庄
+    XUANFENGGANG = 16; //旋风杠
+}
+
+message SjApplyCalculateData {
+    bool xuanfeng = 1; //是否旋风杠
+    repeated int32 xflist = 2; //是否已经旋风杠 1为中发白的旋风杠，2为东南西北的旋风杠
+}
+
+message SjPlayerSettleDate {
+    repeated int32 xflist = 1; //这里是包含了旋风杠本身的牌和补杠的牌
+
+}
+
+message SjApplySettleData {
+    bool xuanfeng = 1; //是否旋风杠
+    bool normal = 2; //是否是普通结算
+    int32 top = 3; //番数：封顶的番数
+    int32 piao = 4; //飘的分数
+}
+
+message SjSingleSettleResult {
+    int32 player_id = 1; //玩家ID
+    int32 base_score = 2; //基础牌型分
+    int32 gang_score = 3; //杠分
+    int32 total_score = 4; //总得分
+    repeated SjSettlePatterns patterns = 5; //牌型结算
+}
+
+message SjSettleResult {
+    repeated SjSingleSettleResult results = 1; //结果数组
+}
+
+
+
+

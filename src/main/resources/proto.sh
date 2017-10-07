@@ -1,0 +1,2 @@
+/home/pengyi/software/protobuf/bin/protoc --proto_path=/home/pengyi/桌面/mahjong_songjianghe/src/main/resources/ --java_out=/home/pengyi/桌面/mahjong_songjianghe/src/main/java/ /home/pengyi/桌面/mahjong_songjianghe/src/main/resources/majong_rpc.proto
+/home/pengyi/software/protobuf/bin/protoc --proto_path=/home/pengyi/桌面/mahjong_songjianghe/src/main/resources/ --java_out=/home/pengyi/桌面/mahjong_songjianghe/src/main/java/ /home/pengyi/桌面/mahjong_songjianghe/src/main/resources/SJ_mahjong.proto

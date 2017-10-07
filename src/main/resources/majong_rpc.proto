@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "mahjong.mode.proto";
+
+package majong_rpc;
+
+service MajongCalculate {
+    //进行麻将牌过程计算
+    rpc calculate (CalculateData) returns (CalculateResult) {
+    }
+
+    //结算
+    rpc settle (SettleData) returns (SettleResult) {
+    }
+
+    //洗牌函数
+    rpc shuffle (ShuffleData) returns (ShuffleResult) {
+    }
+}
+
+//杠牌类型
+enum GangType {
+    BGANG = 0; //巴杠
+    MGANG = 1; //明杠
+    AGANG = 2; //暗杠
+}
+
+message GangData {
+    GangType type = 1;
+    int32 fighter = 2; //放杠者的ID
+    int32 gangvalue = 3; //杠了哪张牌
+}
+
+message MajongPlayerData {
+    int32 player_id = 1;
+    repeated int32 handlist = 2; //手牌
+    repeated int32 chi = 3; //吃过的牌
+    repeated int32 peng = 4; //碰过的牌
+    repeated GangData gang = 5; //杠过的牌
+}
+
+//申请麻将游戏的逻辑计算
+message CalculateData {
+    int32 allocid = 1;
+    MajongPlayerData player = 2;
+    bytes adjunct = 3; //附加的一些判断条件
+}
+
+//麻将游戏计算结果
+message CalculateResult {
+    repeated int32 chi = 1; //能够吃的牌
+    repeated int32 peng = 2; //能够碰的牌
+    repeated int32 gang = 3; //能够杠的牌
+    repeated int32 hu = 4; //能够胡的牌
+    bytes adjunct = 5; //附加操作
+}
+
+enum SettleType {
+    PING_JU = 0; //平局
+    FANG_PAO = 1; //放炮
+    HU_PAO = 2; //胡炮
+    ZI_MO = 3; //自摸
+    BZI_MO = 4; //被自摸
+    GANG_PAO = 5; //杠上炮
+    HU_GANG_PAO = 6; //胡杠上炮
+    GANG_HUA = 7; //杠上花
+    BGANG_HUA = 8; //被杠上花
+    QIANG_GANG = 9; //胡抢杠
+    BQIANG_GANG = 10; //被抢杠
+}
+
+//结算的玩家数据
+message SettlePlayerData {
+    MajongPlayerData player = 1;
+    SettleType settle = 2;
+    int32 majong = 3; //胡的哪张牌
+    bytes adjunct = 4; //附加数据，用于一些特殊需求的麻将
+}
+
+message SettleData {
+    int32 alloc_id = 1;
+    repeated SettlePlayerData player_list = 2; //玩家数据
+    int32 gang_combo = 3; //连续杠牌的次数
+    int32 banker = 4; //本轮游戏的庄家ID
+    int32 banker_combo = 5; //连续当庄家的次数（第一次当，值为1，第二次，值为2）
+    bytes adjunct = 6; //附加的一些判断条件
+}
+
+message SettleResult {
+    bytes results = 1; //计算结果，每一个玩家的数据都是单独数据，用于解析成响应的协议
+}
+
+//作弊的数据
+message CheatData {
+    int32 player_id = 1;
+    int32 loc = 2;
+    int32 level = 3;
+}
+
+//申请洗牌的数据
+message ShuffleData {
+    int32 alloc_id = 1;
+    repeated CheatData cheats = 2;
+    bytes adjunct = 3;
+}
+
+//洗牌结果
+message ShuffleResult {
+    bytes majongs = 1;
+}
+
+
+

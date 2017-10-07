@@ -44,7 +44,7 @@ public class MahjongTcpService implements Runnable {
         ShardedJedisPool shardedJedisPool = new ShardedJedisPool(jedisPoolConfig, shards);
         RedisService redisService = new RedisService(shardedJedisPool);
 
-        int port = 10005;
+        int port = 10101;
         try {
             serverSocket = new ServerSocket(port);
             started = true;

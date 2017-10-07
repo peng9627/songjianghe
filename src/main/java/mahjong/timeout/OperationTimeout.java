@@ -72,7 +72,7 @@ public class OperationTimeout extends Thread {
                             if (!room.passedChecked()) {//如果都操作完了，继续摸牌
                                 room.getCard(response, room.getNextSeat(), redisService);
                             } else {//if (room.checkSurplus()) { //如果可以碰、杠牌，则碰、杠
-                                room.pengOrGang(GameBase.BaseAction.newBuilder().setID(seat.getUserId()), response, redisService, userId);
+                                room.operation(GameBase.BaseAction.newBuilder().setID(seat.getUserId()), response, redisService, userId);
                             }
                         } else {
                             if (MahjongTcpService.userClients.containsKey(userId)) {
