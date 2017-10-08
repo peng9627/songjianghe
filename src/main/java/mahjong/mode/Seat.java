@@ -38,6 +38,7 @@ public class Seat {
     private int dianpaoCount; //点炮次数
     private int angang; //暗杠次数
     private int minggang; //明杠次数
+    private int lianzhuang;//连庄
 
     private String ip;
     private int gameCount;
@@ -272,6 +273,14 @@ public class Seat {
 
     public void setMinggang(int minggang) {
         this.minggang = minggang;
+    }
+
+    public int getLianzhuang() {
+        return lianzhuang;
+    }
+
+    public void setLianzhuang(int lianzhuang) {
+        this.lianzhuang = lianzhuang;
     }
 
     public String getIp() {

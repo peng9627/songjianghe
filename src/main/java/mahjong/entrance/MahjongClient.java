@@ -3,12 +3,14 @@ package mahjong.entrance;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.TypeReference;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.google.protobuf.InvalidProtocolBufferException;
 import mahjong.constant.Constant;
 import mahjong.mode.*;
 import mahjong.redis.RedisService;
 import mahjong.timeout.DissolveTimeout;
 import mahjong.timeout.PlayCardTimeout;
+import mahjong.utils.CoreHttpUtils;
 import mahjong.utils.HttpUtil;
 import mahjong.utils.LoggerUtil;
 import org.slf4j.Logger;
@@ -239,34 +241,18 @@ public class MahjongClient {
                                 response.setOperationType(GameBase.OperationType.DISSOLVE_REPLY).setData(replyResponse.build().toByteString());
                                 messageReceive.send(response.build(), userId);
                             }
-                        } else if (redisService.exists("match_info" + messageReceive.roomNo)) {
-                            while (!redisService.lock("lock_match_info" + messageReceive.roomNo)) {
+
+                            if (1 == (room.getGameRules() >> 4) % 2) {
+                                SerializerFeature[] features = new SerializerFeature[]{SerializerFeature.WriteNullListAsEmpty,
+                                        SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect,
+                                        SerializerFeature.WriteNullStringAsEmpty, SerializerFeature.WriteNullNumberAsZero,
+                                        SerializerFeature.WriteNullBooleanAsFalse};
+                                int ss = SerializerFeature.config(JSON.DEFAULT_GENERATE_FEATURE, SerializerFeature.WriteEnumUsingName, false);
+                                SocketRequest socketRequest = new SocketRequest();
+                                socketRequest.setUserId(room.getRoomOwner());
+                                socketRequest.setContent(room.getRoomNo());
+                                CoreHttpUtils.urlConnectionByRsa("http://127.0.0.1:10110/2", JSON.toJSONString(socketRequest, ss, features));
                             }
-                            MatchInfo matchInfo = JSON.parseObject(redisService.getCache("match_info" + messageReceive.roomNo), MatchInfo.class);
-                            int score = 0;
-                            for (MatchUser m : matchInfo.getMatchUsers()) {
-                                if (m.getUserId() == userId) {
-                                    score = m.getScore();
-                                    break;
-                                }
-                            }
-                            messageReceive.send(response.setOperationType(GameBase.OperationType.ROOM_INFO).clearData().build(), userId);
-                            GameBase.RoomSeatsInfo.Builder roomSeatsInfo = GameBase.RoomSeatsInfo.newBuilder();
-                            GameBase.SeatResponse.Builder seatResponse = GameBase.SeatResponse.newBuilder();
-                            seatResponse.setSeatNo(1);
-                            seatResponse.setID(userId);
-                            seatResponse.setScore(score);
-                            seatResponse.setReady(false);
-                            seatResponse.setIp(userResponse.getData().getLastLoginIp());
-                            seatResponse.setGameCount(userResponse.getData().getGameCount());
-                            seatResponse.setNickname(userResponse.getData().getNickname());
-                            seatResponse.setHead(userResponse.getData().getHead());
-                            seatResponse.setSex(userResponse.getData().getSex().equals("MAN"));
-                            seatResponse.setOffline(false);
-                            seatResponse.setIsRobot(false);
-                            roomSeatsInfo.addSeats(seatResponse.build());
-                            messageReceive.send(response.setOperationType(GameBase.OperationType.SEAT_INFO).setData(roomSeatsInfo.build().toByteString()).build(), userId);
-                            redisService.unlock("lock_match_info" + messageReceive.roomNo);
                         } else {
                             roomCardIntoResponseBuilder.setError(GameBase.ErrorCode.ROOM_NOT_EXIST);
                             response.setOperationType(GameBase.OperationType.ROOM_INFO).setData(roomCardIntoResponseBuilder.build().toByteString());
@@ -419,7 +405,9 @@ public class MahjongClient {
                                 break;
                             case HU:
                                 room.getSeats().stream().filter(seat -> seat.getUserId() == userId).forEach(seat -> seat.setOperation(1));
-                                room.hu(userId, response, redisService);//胡
+                                if (room.checkCanHu(userId)) {
+                                    room.hu(userId, response, redisService);//胡
+                                }
                                 break;
                             case PASS:
                                 room.getSeats().stream().filter(seat -> seat.getUserId() == userId).forEach(seat -> {
@@ -434,8 +422,11 @@ public class MahjongClient {
                                         seat.setOperation(4);
                                         if (!room.passedChecked()) {//如果都操作完了，继续摸牌
                                             room.getCard(response, room.getNextSeat(), redisService);
-                                        } else {//if (room.checkSurplus()) { //如果可以碰、杠牌，则碰、杠
+                                        } else if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
                                             room.operation(actionResponse, response, redisService, userId);
+                                        }
+                                        if (room.checkCanHu(0)) {
+                                            room.hu(0, response, redisService);
                                         }
                                     } else {
                                         actionResponse.setOperationId(GameBase.ActionId.PASS).clearData();
