@@ -40,18 +40,15 @@ public class MahjongUtil {
     }
 
     public static Integer checkXFGang(List<Integer> cards, List<Integer> cardList) {
-        if (null == cardList || 0 == cardList.size()) {
-            if (Card.containAll(cards, Card.getAllSameColor(3))) {
-                return 31;
-            } else if (Card.containAll(cards, Card.getAllSameColor(4))) {
-                return 41;
-            }
-        } else {
-            if (Card.containAll(cardList, Card.getAllSameColor(3)) && Card.hasSameColor(cards, 3)) {
-                return 31;
-            } else if (Card.containAll(cardList, Card.getAllSameColor(4)) && Card.hasSameColor(cards, 4)) {
-                return 41;
-            }
+        if (Card.containAll(cardList, Card.getAllSameColor(3)) && Card.hasSameColor(cards, 3)) {
+            return 31;
+        } else if (Card.containAll(cardList, Card.getAllSameColor(4)) && Card.hasSameColor(cards, 4)) {
+            return 41;
+        }
+        if (Card.containAll(cards, Card.getAllSameColor(3))) {
+            return 31;
+        } else if (Card.containAll(cards, Card.getAllSameColor(4))) {
+            return 41;
         }
         return null;
     }

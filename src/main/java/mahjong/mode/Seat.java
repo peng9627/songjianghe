@@ -369,6 +369,7 @@ public class Seat {
         cardResult = null;
         mingGangResult.clear();
         anGangResult.clear();
+        xfGangResult.clear();
         canChi.clear();
         canGang.clear();
         canPeng.clear();

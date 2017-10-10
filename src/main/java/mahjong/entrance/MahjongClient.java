@@ -53,12 +53,18 @@ public class MahjongClient {
                             return;
                         }
                         for (Seat seat : room.getSeats()) {
-                            if (seat.getUserId() == userId) {
+                            if (seat.getUserId() == userId && !seat.isRobot()) {
                                 seat.setRobot(true);
+                                response.setOperationType(GameBase.OperationType.ONLINE).setData(GameBase.Online.newBuilder()
+                                        .setOnline(false).setUserId(userId).build().toByteString());
+                                for (Seat seat1 : room.getSeats()) {
+                                    if (MahjongTcpService.userClients.containsKey(seat1.getUserId())) {
+                                        messageReceive.send(response.build(), seat1.getUserId());
+                                    }
+                                }
                                 break;
                             }
                         }
-                        room.sendSeatInfo(response);
                         redisService.addCache("room" + messageReceive.roomNo, JSON.toJSONString(room));
                         redisService.unlock("lock_room" + messageReceive.roomNo);
                     }
@@ -159,6 +165,7 @@ public class MahjongClient {
                                     }
                                 }
                                 gameInfo.setGameCount(room.getGameCount());
+                                gameInfo.setGameTimes(room.getGameTimes());
                                 addSeat(room, gameInfo);
 
                                 int lastPlayedUser = 0;
@@ -203,6 +210,34 @@ public class MahjongClient {
                                         case PLAY_CARD:
                                             if (operationHistory.getUserId() != userId) {
                                                 room.checkSeatCan(operationHistory.getCards().get(0), response, userId, operationHistory.getDate(), redisService);
+                                            }
+                                            break;
+                                        case XF_GANG:
+                                            if (3 == operationHistory.getCards().size()) {
+                                                for (Seat seat : room.getSeats()) {
+                                                    if (seat.getUserId() == operationHistory.getUserId() && seat.getUserId() == userId) {
+                                                        GameBase.AskResponse.Builder builder = GameBase.AskResponse.newBuilder();
+                                                        //暗杠
+                                                        if (null != MahjongUtil.checkGang(seat.getCards()) && 0 < room.getSurplusCards().size()) {
+                                                            builder.addOperationId(GameBase.ActionId.AN_GANG);
+                                                        }
+                                                        //扒杠
+                                                        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < room.getSurplusCards().size()) {
+                                                            builder.addOperationId(GameBase.ActionId.BA_GANG);
+                                                        }
+                                                        if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (room.getGameRules() >> 1) % 2) {
+                                                            builder.addOperationId(GameBase.ActionId.XF_GANG);
+                                                        }
+                                                        if (0 != builder.getOperationIdCount()) {
+                                                            if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
+                                                                response.clear();
+                                                                response.setOperationType(GameBase.OperationType.ASK).setData(builder.build().toByteString());
+                                                                MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
+                                                            }
+                                                        }
+                                                        break;
+                                                    }
+                                                }
                                             }
                                             break;
                                     }
@@ -356,8 +391,10 @@ public class MahjongClient {
                                 break;
                             case XF_GANG:
                                 if (0 < room.getHistoryList().size()) {
-                                    if (0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
-                                            || room.getHistoryList().get(room.getHistoryList().size() - 1).getUserId() != userId) {
+                                    if ((0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
+                                            || room.getHistoryList().get(room.getHistoryList().size() - 1).getUserId() != userId)
+                                            && (3 != room.getHistoryList().get(room.getHistoryList().size() - 1).getCards().size()
+                                            && 0 == room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.XF_GANG))) {
                                         return;
                                     }
                                 }
@@ -421,9 +458,15 @@ public class MahjongClient {
                                         messageReceive.send(response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString()).build(), userId);
                                         seat.setOperation(4);
                                         if (!room.passedChecked()) {//如果都操作完了，继续摸牌
+                                            room.getSeats().forEach(seat1 -> {
+                                                seat1.setOperation(0);
+                                                seat1.getChiTemp().clear();
+                                            });
                                             room.getCard(response, room.getNextSeat(), redisService);
+                                            return;
                                         } else if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
                                             room.operation(actionResponse, response, redisService, userId);
+                                            return;
                                         }
                                         if (room.checkCanHu(0)) {
                                             room.hu(0, response, redisService);
@@ -592,6 +635,32 @@ public class MahjongClient {
                         redisService.unlock("lock_room" + messageReceive.roomNo);
                     }
                     break;
+                case ONLINE:
+                    if (redisService.exists("room" + messageReceive.roomNo)) {
+                        while (!redisService.lock("lock_room" + messageReceive.roomNo)) {
+                        }
+                        Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
+                        GameBase.Online online = GameBase.Online.parseFrom(request.getData());
+                        for (Seat seat : room.getSeats()) {
+                            if (seat.getUserId() == userId) {
+                                if (online.getOnline() && seat.isRobot()) {
+                                    seat.setRobot(false);
+                                } else if (!online.getOnline() && !seat.isRobot()) {
+                                    seat.setRobot(true);
+                                } else {
+                                    break;
+                                }
+                                response.setOperationType(GameBase.OperationType.ONLINE).setData(online.toBuilder().setUserId(userId).build().toByteString());
+                                for (Seat seat1 : room.getSeats()) {
+                                    if (MahjongTcpService.userClients.containsKey(seat1.getUserId())) {
+                                        messageReceive.send(response.build(), seat1.getUserId());
+                                    }
+                                }
+                            }
+                        }
+                        redisService.unlock("lock_room" + messageReceive.roomNo);
+                    }
+                    break;
                 case LOGGER:
                     GameBase.LoggerRequest loggerRequest = GameBase.LoggerRequest.parseFrom(request.getData());
                     LoggerUtil.logger(userId + "----" + loggerRequest.getLogger());
@@ -631,9 +700,11 @@ public class MahjongClient {
             if (null != seat1.getChiCards()) {
                 seatResponse.addAllChiCards(seat1.getChiCards());
             }
-
             if (null != seat1.getPlayedCards()) {
                 seatResponse.addAllPlayedCards(seat1.getPlayedCards());
+            }
+            if (null != seat1.getXfGangCards()) {
+                seatResponse.addAllXuanfengGangCards(seat1.getXfGangCards());
             }
             gameInfo.addSeats(seatResponse.build());
         }

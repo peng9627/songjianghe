@@ -895,24 +895,24 @@ public final class Songjianghe {
                         "roto3"
         };
         com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-                new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
-                    public com.google.protobuf.ExtensionRegistry assignDescriptors(
-                            com.google.protobuf.Descriptors.FileDescriptor root) {
-                        descriptor = root;
-                        return null;
-                    }
-                };
-        com.google.protobuf.Descriptors.FileDescriptor
-                .internalBuildGeneratedFileFrom(descriptorData,
-                        new com.google.protobuf.Descriptors.FileDescriptor[]{
-                        }, assigner);
-        internal_static_SongjiangheMahjongIntoResponse_descriptor =
-                getDescriptor().getMessageTypes().get(0);
-        internal_static_SongjiangheMahjongIntoResponse_fieldAccessorTable = new
-                com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-                internal_static_SongjiangheMahjongIntoResponse_descriptor,
-                new java.lang.String[]{"GameTimes", "Normal", "SingleFan", "GameRules", "Count",});
-    }
+                new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
+          public com.google.protobuf.ExtensionRegistry assignDescriptors(
+              com.google.protobuf.Descriptors.FileDescriptor root) {
+            descriptor = root;
+            return null;
+          }
+        };
+    com.google.protobuf.Descriptors.FileDescriptor
+      .internalBuildGeneratedFileFrom(descriptorData,
+        new com.google.protobuf.Descriptors.FileDescriptor[] {
+        }, assigner);
+    internal_static_SongjiangheMahjongIntoResponse_descriptor =
+      getDescriptor().getMessageTypes().get(0);
+    internal_static_SongjiangheMahjongIntoResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_SongjiangheMahjongIntoResponse_descriptor,
+        new java.lang.String[] { "GameTimes", "Normal", "SingleFan", "GameRules", "Count", });
+  }
 
-    // @@protoc_insertion_point(outer_class_scope)
+  // @@protoc_insertion_point(outer_class_scope)
 }
