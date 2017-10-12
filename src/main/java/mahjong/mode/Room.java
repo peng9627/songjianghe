@@ -228,33 +228,35 @@ public class Room {
             List<Integer> cardList = new ArrayList<>();
             int cardIndex;
 //            if (seat.getSeatNo() == 1) {
-//                cardList.add(1);
-//                cardList.add(1);
-//                cardList.add(1);
-//                cardList.add(2);
-//                cardList.add(2);
-//                cardList.add(2);
-//                cardList.add(3);
-//                cardList.add(3);
-//                cardList.add(3);
-//                cardList.add(4);
-//                cardList.add(4);
-//                cardList.add(4);
-//                cardList.add(41);
+//                cardList.add(31);
+//                cardList.add(33);
+//                cardList.add(35);
+//                cardList.add(31);
+//                cardList.add(33);
+//                cardList.add(35);
+//                cardList.add(31);
+//                cardList.add(33);
+//                cardList.add(35);
+//                cardList.add(31);
+//                cardList.add(33);
+//                cardList.add(35);
+//
+//
+//                cardList.add(45);
 //            } else if (seat.getSeatNo() == 2) {
-//                cardList.add(31);
-//                cardList.add(31);
-//                cardList.add(35);
-//                cardList.add(35);
-//                cardList.add(33);
-//                cardList.add(33);
-//                cardList.add(41);
-//                cardList.add(41);
 //                cardList.add(41);
 //                cardList.add(43);
 //                cardList.add(45);
 //                cardList.add(47);
-//                cardList.add(5);
+//                cardList.add(41);
+//                cardList.add(43);
+//                cardList.add(41);
+//                cardList.add(43);
+//                cardList.add(45);
+//                cardList.add(47);
+//                cardList.add(41);
+//                cardList.add(43);
+//                cardList.add(45);
 //            } else {
             for (int i = 0; i < 13; i++) {
                 cardIndex = (int) (Math.random() * surplusCards.size());
@@ -469,7 +471,6 @@ public class Room {
                 userResult.setCardScore(seat.getCardResult().getScore());
                 userResult.setFan(seat.getCardResult().getFan());
                 if (seat.getCardResult().getScore() > 0) {
-                    winSeats.add(seat.getUserId());
                     userResult.setHuCard(card);
                     huCard.put(seat.getUserId(), card);
                     if (1 == (gameRules >> 2) % 2) {
@@ -576,6 +577,7 @@ public class Room {
             }
         }
 
+        //      if (0 != recordList.size()) {
         Mahjong.MahjongBalanceResponse.Builder balance = Mahjong.MahjongBalanceResponse.newBuilder();
         for (Seat seat : seats) {
             Mahjong.MahjongSeatGameBalance.Builder seatGameOver = Mahjong.MahjongSeatGameBalance.newBuilder()
@@ -584,7 +586,13 @@ public class Room {
                     .setDianpaoCount(seat.getDianpaoCount()).setWinOrLose(seat.getScore());
             balance.addGameBalance(seatGameOver);
         }
-
+        for (Seat seat : seats) {
+            if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
+                response.setOperationType(GameBase.OperationType.BALANCE).setData(balance.build().toByteString());
+                MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
+            }
+        }
+        //    }
         StringBuilder people = new StringBuilder();
 
         GameBase.OverResponse.Builder over = GameBase.OverResponse.newBuilder();
@@ -600,8 +608,6 @@ public class Room {
                 over.setBackKey(uuid);
                 over.setDateTime(new Date().getTime());
 
-                response.setOperationType(GameBase.OperationType.BALANCE).setData(balance.build().toByteString());
-                MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
                 response.setOperationType(GameBase.OperationType.OVER).setData(over.build().toByteString());
                 MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
             }
@@ -730,7 +736,8 @@ public class Room {
             if (historyList.size() > 2) {
                 if (0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
                         || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.AN_GANG)
-                        || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.BA_GANG)) {
+                        || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.BA_GANG)
+                        || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.XF_GANG)) {
                     gangkai = true;
                 }
             }
@@ -738,7 +745,7 @@ public class Room {
             SettleData.Builder settleData = SettleData.newBuilder();
             settleData.setAllocId(3);
             settleData.setBanker(banker);
-            settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 5 : 0).build().toByteString());
+            settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 5 : 0).setTop(singleFan ? 1 : 4).build().toByteString());
             for (Seat seat : seats) {
                 SettlePlayerData.Builder settlePlayerData = SettlePlayerData.newBuilder();
                 settlePlayerData.setAdjunct(SjPlayerSettleData.newBuilder().addAllXflist(seat.getXfGangCards()).build().toByteString());
@@ -800,7 +807,7 @@ public class Room {
         SettleData.Builder settleData = SettleData.newBuilder();
         settleData.setAllocId(3);
         settleData.setBanker(banker);
-        settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 5 : 0).build().toByteString());
+        settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 5 : 0).setTop(singleFan ? 1 : 4).build().toByteString());
 
         List<Seat> arraySeats = new ArrayList<>();
         for (Seat seat : seats) {
@@ -819,23 +826,21 @@ public class Room {
             settlePlayerData.setAdjunct(SjPlayerSettleData.newBuilder().addAllXflist(seat.getXfGangCards()).build().toByteString());
             settlePlayerData.setPlayer(majongPlayerData(seat));
 
-            if (1 == Card.containSize(seat.getCanHu(), card) && seat.getSeatNo() != operationSeatNo && !hu && seat.getOperation() == 1) {
-                settlePlayerData.setMajong(seat.getCards().get(seat.getCards().size() - 1));
+            if (1 == Card.containSize(seat.getCanHu(), card) && seat.getSeatNo() != operationSeatNo && (!hu || 1 == gameRules % 2) && seat.getOperation() == 1) {
+                settlePlayerData.setMajong(card);
                 if (gangkai) {
                     settlePlayerData.setSettle(SettleType.HU_GANG_PAO);
                 } else {
                     settlePlayerData.setSettle(SettleType.HU_PAO);
                 }
                 seat.setDianpaoCount(seat.getZimoCount() + 1);
-                historyList.add(new OperationHistory(operationSeat[0].getUserId(), OperationHistoryType.HU, operationSeat[0].getCards().get(operationSeat[0].getCards().size() - 1)));
+                historyList.add(new OperationHistory(operationSeat[0].getUserId(), OperationHistoryType.HU, card));
                 response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.HU)
                         .setID(seat.getUserId()).setData(Mahjong.MahjongHuResponse.newBuilder().setCard(seat.getCards().size() - 1)
                                 .build().toByteString()).build().toByteString());
                 seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                         .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
-                if (0 == gameRules % 2) {
-                    hu = true;
-                }
+                hu = true;
             } else {
                 if (normal) {
                     if (gangkai) {

@@ -23,8 +23,8 @@ public class Constant {
     public static int matchEliminateScore = 100;
 
     public static int channelPoolCount = 5;
-    //    public static String logicServiceIp = "127.0.0.1";
-    public static String logicServiceIp = "192.168.1.9";
+    public static String logicServiceIp = "127.0.0.1";
+    //    public static String logicServiceIp = "192.168.1.9";
     public static int logicServicePort = 23344;
     public static int channelPoolCheckTime = 10000;
 
