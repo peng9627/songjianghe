@@ -209,7 +209,7 @@ public class Room {
         seat.setAreaString(user.getArea());
         seat.setHead(user.getHead());
         seat.setNickname(user.getNickname());
-        seat.setSex(user.getSex().equals("MAN"));
+        seat.setSex(user.getSex().equals("1"));
         seat.setScore(score);
         seat.setIp(user.getLastLoginIp());
         seat.setGameCount(user.getGameCount());
@@ -446,6 +446,7 @@ public class Room {
         }
 
         Mahjong.MahjongResultResponse.Builder resultResponse = Mahjong.MahjongResultResponse.newBuilder();
+        resultResponse.setDateTime(new Date().getTime());
 
         List<Integer> winSeats = new ArrayList<>();
         List<Integer> loseSeats = new ArrayList<>();
@@ -577,22 +578,23 @@ public class Room {
             }
         }
 
-        //      if (0 != recordList.size()) {
-        Mahjong.MahjongBalanceResponse.Builder balance = Mahjong.MahjongBalanceResponse.newBuilder();
-        for (Seat seat : seats) {
-            Mahjong.MahjongSeatGameBalance.Builder seatGameOver = Mahjong.MahjongSeatGameBalance.newBuilder()
-                    .setID(seat.getUserId()).setMinggang(seat.getMinggang()).setAngang(seat.getAngang())
-                    .setZimoCount(seat.getZimoCount()).setHuCount(seat.getHuCount()).setLianzhuang(seat.getLianzhuang())
-                    .setDianpaoCount(seat.getDianpaoCount()).setWinOrLose(seat.getScore());
-            balance.addGameBalance(seatGameOver);
-        }
-        for (Seat seat : seats) {
-            if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
-                response.setOperationType(GameBase.OperationType.BALANCE).setData(balance.build().toByteString());
-                MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
+        if (0 != recordList.size()) {
+            Mahjong.MahjongBalanceResponse.Builder balance = Mahjong.MahjongBalanceResponse.newBuilder();
+            balance.setDateTime(new Date().getTime());
+            for (Seat seat : seats) {
+                Mahjong.MahjongSeatGameBalance.Builder seatGameOver = Mahjong.MahjongSeatGameBalance.newBuilder()
+                        .setID(seat.getUserId()).setMinggang(seat.getMinggang()).setAngang(seat.getAngang())
+                        .setZimoCount(seat.getZimoCount()).setHuCount(seat.getHuCount()).setLianzhuang(seat.getLianzhuang())
+                        .setDianpaoCount(seat.getDianpaoCount()).setWinOrLose(seat.getScore());
+                balance.addGameBalance(seatGameOver);
+            }
+            for (Seat seat : seats) {
+                if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
+                    response.setOperationType(GameBase.OperationType.BALANCE).setData(balance.build().toByteString());
+                    MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
+                }
             }
         }
-        //    }
         StringBuilder people = new StringBuilder();
 
         GameBase.OverResponse.Builder over = GameBase.OverResponse.newBuilder();
@@ -650,6 +652,10 @@ public class Room {
             }
         }
 
+        //删除该桌
+        redisService.delete("room" + roomNo);
+        redisService.delete("room_type" + roomNo);
+
         if (1 == (gameRules >> 4) % 2) {
             SerializerFeature[] features = new SerializerFeature[]{SerializerFeature.WriteNullListAsEmpty,
                     SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect,
@@ -658,13 +664,8 @@ public class Room {
             int ss = SerializerFeature.config(JSON.DEFAULT_GENERATE_FEATURE, SerializerFeature.WriteEnumUsingName, false);
             SocketRequest socketRequest = new SocketRequest();
             socketRequest.setUserId(roomOwner);
-            socketRequest.setContent(roomNo);
-            CoreHttpUtils.urlConnectionByRsa("http://127.0.0.1:10110/2", JSON.toJSONString(socketRequest, ss, features));
+            CoreHttpUtils.urlConnectionByRsa("http://127.0.0.1:10110/3", JSON.toJSONString(socketRequest, ss, features));
         }
-
-        //删除该桌
-        redisService.delete("room" + roomNo);
-        redisService.delete("room_type" + roomNo);
         roomNo = null;
     }
 
@@ -1578,6 +1579,16 @@ public class Room {
             if (0 == gameCount) {
                 gameCount = 1;
             }
+        }
+        boolean hasBanker = false;
+        for (Seat seat : seats) {
+            if (seat.getUserId() == banker) {
+                hasBanker = true;
+                break;
+            }
+        }
+        if (!hasBanker) {
+            banker = seats.get(0).getUserId();
         }
         gameStatus = GameStatus.PLAYING;
         dealCard();

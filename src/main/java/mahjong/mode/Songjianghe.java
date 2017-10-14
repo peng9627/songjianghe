@@ -874,28 +874,26 @@ public final class Songjianghe {
 
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_SongjiangheMahjongIntoResponse_descriptor;
-    private static final
+  private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-            internal_static_SongjiangheMahjongIntoResponse_fieldAccessorTable;
+      internal_static_SongjiangheMahjongIntoResponse_fieldAccessorTable;
 
-    public static com.google.protobuf.Descriptors.FileDescriptor
-    getDescriptor() {
-        return descriptor;
-    }
-
-    private static com.google.protobuf.Descriptors.FileDescriptor
-            descriptor;
-
-    static {
-        java.lang.String[] descriptorData = {
-                "\n\021songjianghe.proto\"x\n\036SongjiangheMahjon" +
-                        "gIntoResponse\022\021\n\tgameTimes\030\001 \001(\r\022\016\n\006norm" +
-                        "al\030\002 \001(\010\022\021\n\tsingleFan\030\003 \001(\010\022\021\n\tgameRules" +
-                        "\030\004 \001(\r\022\r\n\005count\030\005 \001(\rB\016\n\014mahjong.modeb\006p" +
-                        "roto3"
-        };
-        com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-                new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
+  public static com.google.protobuf.Descriptors.FileDescriptor
+      getDescriptor() {
+    return descriptor;
+  }
+  private static  com.google.protobuf.Descriptors.FileDescriptor
+      descriptor;
+  static {
+    java.lang.String[] descriptorData = {
+      "\n\021songjianghe.proto\"x\n\036SongjiangheMahjon" +
+      "gIntoResponse\022\021\n\tgameTimes\030\001 \001(\r\022\016\n\006norm" +
+      "al\030\002 \001(\010\022\021\n\tsingleFan\030\003 \001(\010\022\021\n\tgameRules" +
+      "\030\004 \001(\r\022\r\n\005count\030\005 \001(\rB\016\n\014mahjong.modeb\006p" +
+      "roto3"
+    };
+    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
+        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
           public com.google.protobuf.ExtensionRegistry assignDescriptors(
               com.google.protobuf.Descriptors.FileDescriptor root) {
             descriptor = root;
