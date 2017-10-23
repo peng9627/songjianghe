@@ -10,7 +10,6 @@ import mahjong.mode.*;
 import mahjong.redis.RedisService;
 import mahjong.timeout.DissolveTimeout;
 import mahjong.timeout.PlayCardTimeout;
-import mahjong.utils.CoreHttpUtils;
 import mahjong.utils.HttpUtil;
 import mahjong.utils.LoggerUtil;
 import org.slf4j.Logger;
@@ -19,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Created date 2016/3/25
@@ -104,7 +104,7 @@ public class MahjongClient {
                             try {
                                 wait(10);
                             } catch (InterruptedException e) {
-                                e.printStackTrace();
+                                logger.error(e.toString(), e);
                             }
                         }
                         MahjongTcpService.userClients.put(userId, messageReceive);
@@ -286,7 +286,7 @@ public class MahjongClient {
                                 SocketRequest socketRequest = new SocketRequest();
                                 socketRequest.setUserId(room.getRoomOwner());
                                 socketRequest.setContent(room.getRoomNo());
-                                CoreHttpUtils.urlConnectionByRsa("http://127.0.0.1:10110/2", JSON.toJSONString(socketRequest, ss, features));
+                                HttpUtil.urlConnectionByRsa(Constant.notifyRoomItem, JSON.toJSONString(socketRequest, ss, features));
                             }
                         } else {
                             roomCardIntoResponseBuilder.setError(GameBase.ErrorCode.ROOM_NOT_EXIST);
@@ -362,8 +362,8 @@ public class MahjongClient {
                         Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
                         switch (actionRequest.getOperationId()) {
                             case PLAY_CARD:
-                                Mahjong.MahjongPlayCard playCardRequest = Mahjong.MahjongPlayCard.parseFrom(actionRequest.getData());
-                                Integer card = playCardRequest.getCard();
+                                Mahjong.CardsData playCardRequest = Mahjong.CardsData.parseFrom(actionRequest.getData());
+                                Integer card = playCardRequest.getCards(0);
                                 room.playCard(card, userId, actionResponse, response, redisService);
                                 break;
                             case PENG:
@@ -386,8 +386,8 @@ public class MahjongClient {
                                         return;
                                     }
                                 }
-                                Mahjong.MahjongGang gangRequest = Mahjong.MahjongGang.parseFrom(actionRequest.getData());
-                                room.selfGang(actionResponse, gangRequest.getCard(0), response, redisService, userId);
+                                Mahjong.CardsData gangRequest = Mahjong.CardsData.parseFrom(actionRequest.getData());
+                                room.selfGang(actionResponse, gangRequest.getCards(0), response, redisService, userId);
                                 break;
                             case XF_GANG:
                                 if (0 < room.getHistoryList().size()) {
@@ -398,8 +398,8 @@ public class MahjongClient {
                                         return;
                                     }
                                 }
-                                gangRequest = Mahjong.MahjongGang.parseFrom(actionRequest.getData());
-                                room.xuanfengGang(actionResponse, gangRequest.getCardList(), response, redisService, userId);
+                                gangRequest = Mahjong.CardsData.parseFrom(actionRequest.getData());
+                                room.xuanfengGang(actionResponse, gangRequest.getCardsList(), response, redisService, userId);
                                 break;
                             case DIAN_GANG:
                                 if (0 < room.getHistoryList().size()) {
@@ -419,7 +419,7 @@ public class MahjongClient {
                                         return;
                                     }
                                 }
-                                Mahjong.MahjongChi chiRequest = Mahjong.MahjongChi.parseFrom(actionRequest.getData());
+                                Mahjong.CardsData chiRequest = Mahjong.CardsData.parseFrom(actionRequest.getData());
                                 if (0 < room.getHistoryList().size()) {
                                     OperationHistory operationHistory = room.getHistoryList().get(room.getHistoryList().size() - 1);
                                     if (0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
@@ -491,9 +491,52 @@ public class MahjongClient {
                     }
                     break;
                 case EXIT:
+                    if (redisService.exists("room" + messageReceive.roomNo)) {
+                        while (!redisService.lock("lock_room" + messageReceive.roomNo)) {
+                        }
+                        GameBase.ExitRoom.Builder exitRoom = GameBase.ExitRoom.newBuilder();
+                        Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
+                        if (0 == room.getGameStatus().compareTo(GameStatus.WAITING)) {
+                            for (Seat seat : room.getSeats()) {
+                                if (seat.getUserId() == userId) {
+                                    exitRoom.setUserId(userId);
+                                    String uuid = UUID.randomUUID().toString().replace("-", "");
+                                    while (redisService.exists(uuid)) {
+                                        uuid = UUID.randomUUID().toString().replace("-", "");
+                                    }
+                                    redisService.addCache("backkey" + uuid, seat.getUserId() + "", 1800);
+                                    exitRoom.setBackKey(uuid);
+                                    response.setOperationType(GameBase.OperationType.EXIT).setData(exitRoom.build().toByteString());
+                                    messageReceive.send(response.build(), userId);
+                                    room.getSeatNos().add(seat.getSeatNo());
+                                    room.getSeats().remove(seat);
+                                    redisService.delete("reconnect" + seat.getUserId());
+                                    room.sendSeatInfo(response);
+                                    redisService.addCache("room" + messageReceive.roomNo, JSON.toJSONString(room));
+                                    break;
+                                }
+                            }
+                            if (1 == (room.getGameRules() >> 4) % 2) {
+                                SerializerFeature[] features = new SerializerFeature[]{SerializerFeature.WriteNullListAsEmpty,
+                                        SerializerFeature.WriteMapNullValue, SerializerFeature.DisableCircularReferenceDetect,
+                                        SerializerFeature.WriteNullStringAsEmpty, SerializerFeature.WriteNullNumberAsZero,
+                                        SerializerFeature.WriteNullBooleanAsFalse};
+                                int ss = SerializerFeature.config(JSON.DEFAULT_GENERATE_FEATURE, SerializerFeature.WriteEnumUsingName, false);
+                                SocketRequest socketRequest = new SocketRequest();
+                                socketRequest.setUserId(room.getRoomOwner());
+                                socketRequest.setContent(room.getRoomNo());
+                                HttpUtil.urlConnectionByRsa(Constant.notifyRoomItem, JSON.toJSONString(socketRequest, ss, features));
+                            }
+                        } else {
+                            exitRoom.setError(GameBase.ErrorCode.SHOUND_NOT_OPERATION);
+                            response.setOperationType(GameBase.OperationType.EXIT).setData(exitRoom.build().toByteString());
+                            messageReceive.send(response.build(), userId);
+                        }
+                        redisService.unlock("lock_room" + messageReceive.roomNo);
+                    }
                     break;
                 case DISSOLVE:
-                    if (redisService.exists("room" + messageReceive.roomNo) && !redisService.exists("room_match" + messageReceive.roomNo)) {
+                    if (redisService.exists("room" + messageReceive.roomNo)) {
                         while (!redisService.lock("lock_room" + messageReceive.roomNo)) {
                         }
                         if (!redisService.exists("dissolve" + messageReceive.roomNo) && !redisService.exists("delete_dissolve" + messageReceive.roomNo)) {
@@ -572,26 +615,28 @@ public class MahjongClient {
                                 }
                             }
 
-                            if (disagree >= room.getSeats().size() / 2) {
-                                GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(false).build();
-                                response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
-                                for (Seat seat : room.getSeats()) {
-                                    if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
-                                        messageReceive.send(response.build(), seat.getUserId());
+                            if (disagree + agree == room.getSeats().size()) {
+                                if (disagree > 0) {
+                                    GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(false).build();
+                                    response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
+                                    for (Seat seat : room.getSeats()) {
+                                        if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
+                                            messageReceive.send(response.build(), seat.getUserId());
+                                        }
                                     }
-                                }
-                                redisService.delete("dissolve" + messageReceive.roomNo);
-                                redisService.addCache("delete_dissolve" + messageReceive.roomNo, "", 60);
-                            } else if (agree > room.getSeats().size() / 2) {
-                                GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(true).build();
-                                response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
-                                for (Seat seat : room.getSeats()) {
-                                    if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
-                                        messageReceive.send(response.build(), seat.getUserId());
+                                    redisService.delete("dissolve" + messageReceive.roomNo);
+                                    redisService.addCache("delete_dissolve" + messageReceive.roomNo, "", 60);
+                                } else {
+                                    GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(true).build();
+                                    response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
+                                    for (Seat seat : room.getSeats()) {
+                                        if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
+                                            messageReceive.send(response.build(), seat.getUserId());
+                                        }
                                     }
+                                    room.roomOver(response, redisService);
+                                    redisService.delete("dissolve" + messageReceive.roomNo);
                                 }
-                                room.roomOver(response, redisService);
-                                redisService.delete("dissolve" + messageReceive.roomNo);
                             }
                         }
                         redisService.unlock("lock_dissolve" + messageReceive.roomNo);
@@ -667,7 +712,7 @@ public class MahjongClient {
                     break;
             }
         } catch (InvalidProtocolBufferException e) {
-            e.printStackTrace();
+            logger.error(e.toString(), e);
         }
     }
 

@@ -14,7 +14,7 @@ public enum ScoreType {
     LIMEN("立门", 6),
     HUNYISE("混一色", 7),
     SHOUBAYI("手把一", 8),
-    GANGHOUKAI("杠后开", 9),
+    GANGHOUFAN("杠后番", 9),
     QINGYISE("清一色", 10),
     YIBANGAO("一般高", 11),
     SIGUIYI("四归一", 12),
@@ -25,7 +25,8 @@ public enum ScoreType {
     DIANPAO("点炮", 17),
     ZIMO("自摸", 18),
     ZUOZHUANG("坐庄", 19),
-    XUANFENGGANG("旋风杠", 20);
+    XUANFENGGANG("旋风杠", 20),
+    GANGHOUPAO("杠后炮", 21);
 
     private String name;
     private Integer values;

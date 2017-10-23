@@ -26,6 +26,7 @@ public class User {
     private Date lastLoginDate;         //上次登陆时间
     private Boolean status;             //状态
     private Integer integral;           //积分
+    private Integer cardType;
 
     public String getId() {
         return id;
@@ -169,5 +170,13 @@ public class User {
 
     public void setIntegral(Integer integral) {
         this.integral = integral;
+    }
+
+    public Integer getCardType() {
+        return cardType;
+    }
+
+    public void setCardType(Integer cardType) {
+        this.cardType = cardType;
     }
 }

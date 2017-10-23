@@ -13,30 +13,30 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 斗地主
- * Created by pengyi on 2016/3/9.
+ * Created by pengyi
+ * Date 2017/7/25.
  */
-public class MahjongTcpService implements Runnable {
-
-    public final static Map<Integer, MessageReceive> userClients = new HashMap<>();
+public class MahjongNoticeService implements Runnable {
     private ServerSocket serverSocket;
     private boolean started = false;
     private Logger logger = LoggerFactory.getLogger(this.getClass());
+    public final static Map<Integer, MessageReceive> userClients = new HashMap<>();
+
     private ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
     private RedisService redisService;
 
-    public MahjongTcpService(RedisService redisService) {
+    public MahjongNoticeService(RedisService redisService) {
         this.redisService = redisService;
     }
 
     @Override
     public void run() {
 
-        int port = 10101;
+        int port = 10111;
         try {
             serverSocket = new ServerSocket(port);
             started = true;
-            logger.info("松江河麻将tcp开启成功，端口[" + port + "]");
+            logger.info("通知服务器开启成功，端口[" + port + "]");
         } catch (IOException e) {
             logger.error("socket.open.fail.message");
             logger.error(e.toString(), e);
@@ -45,9 +45,10 @@ public class MahjongTcpService implements Runnable {
         try {
             while (started) {
                 Socket s = serverSocket.accept();
-                cachedThreadPool.execute(new MessageReceive(s, redisService));
+                cachedThreadPool.execute(new NoticeReceive(s, redisService));
             }
         } catch (IOException e) {
+            logger.error("socket.server.dirty.shutdown.message");
             logger.error(e.toString(), e);
         } finally {
             try {

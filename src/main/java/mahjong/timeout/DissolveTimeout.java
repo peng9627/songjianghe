@@ -40,8 +40,22 @@ public class DissolveTimeout extends Thread {
             }
             if (redisService.exists("dissolve" + roomNo)) {
                 Room room = JSON.parseObject(redisService.getCache("room" + roomNo), Room.class);
-                GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(true).build();
-                response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
+                String dissolveStatus = redisService.getCache("dissolve" + roomNo);
+
+                int disagree = 0;
+                for (Seat seat : room.getSeats()) {
+                    if (dissolveStatus.contains("-2" + seat.getUserId())) {
+                        disagree++;
+                    }
+                }
+                if (disagree > 0) {
+                    GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(false).build();
+                    response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
+                } else {
+                    GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(true).build();
+                    response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
+                }
+
                 for (Seat seat : room.getSeats()) {
                     if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
                         MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());

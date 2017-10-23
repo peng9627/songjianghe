@@ -275,7 +275,7 @@ public class RedisClientTemplate {
                 try {
                     Thread.sleep(2, new Random().nextInt(500));
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    log.error(e.toString(), e);
                 }
             }
         } catch (Exception e) {

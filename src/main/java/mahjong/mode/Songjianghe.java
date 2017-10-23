@@ -868,12 +868,12 @@ public final class Songjianghe {
 
         public mahjong.mode.Songjianghe.SongjiangheMahjongIntoResponse getDefaultInstanceForType() {
             return DEFAULT_INSTANCE;
-        }
-
     }
 
-    private static final com.google.protobuf.Descriptors.Descriptor
-            internal_static_SongjiangheMahjongIntoResponse_descriptor;
+  }
+
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_SongjiangheMahjongIntoResponse_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_SongjiangheMahjongIntoResponse_fieldAccessorTable;

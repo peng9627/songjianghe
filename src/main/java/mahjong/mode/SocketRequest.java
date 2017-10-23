@@ -7,17 +7,8 @@ package mahjong.mode;
  */
 public class SocketRequest {
 
-    private int noticeType;
     private int userId;
     private String content;
-
-    public int getNoticeType() {
-        return noticeType;
-    }
-
-    public void setNoticeType(int noticeType) {
-        this.noticeType = noticeType;
-    }
 
     public int getUserId() {
         return userId;

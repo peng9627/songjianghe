@@ -14,8 +14,8 @@ import mahjong.mode.proto.*;
 import mahjong.redis.RedisService;
 import mahjong.timeout.OperationTimeout;
 import mahjong.timeout.PlayCardTimeout;
-import mahjong.utils.CoreHttpUtils;
 import mahjong.utils.HttpUtil;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
@@ -25,6 +25,8 @@ import java.util.*;
  * Date 17-3-7.
  */
 public class Room {
+
+    private Logger logger = LoggerFactory.getLogger(Room.class);
 
     private String roomNo;  //桌号
     private List<Seat> seats = new ArrayList<>();//座位
@@ -222,93 +224,461 @@ public class Room {
     public void dealCard() {
         startDate = new Date();
         surplusCards = Card.getAllCard();
-        //卖马 发牌
-        for (Seat seat : seats) {
-            seat.setReady(false);
-            List<Integer> cardList = new ArrayList<>();
-            int cardIndex;
-//            if (seat.getSeatNo() == 1) {
-//                cardList.add(31);
-//                cardList.add(33);
-//                cardList.add(35);
-//                cardList.add(31);
-//                cardList.add(33);
-//                cardList.add(35);
-//                cardList.add(31);
-//                cardList.add(33);
-//                cardList.add(35);
-//                cardList.add(31);
-//                cardList.add(33);
-//                cardList.add(35);
-//
-//
-//                cardList.add(45);
-//            } else if (seat.getSeatNo() == 2) {
-//                cardList.add(41);
-//                cardList.add(43);
-//                cardList.add(45);
-//                cardList.add(47);
-//                cardList.add(41);
-//                cardList.add(43);
-//                cardList.add(41);
-//                cardList.add(43);
-//                cardList.add(45);
-//                cardList.add(47);
-//                cardList.add(41);
-//                cardList.add(43);
-//                cardList.add(45);
-//            } else {
-            for (int i = 0; i < 13; i++) {
-                cardIndex = (int) (Math.random() * surplusCards.size());
-//                cardIndex = new Random().nextInt(40);
-                cardList.add(surplusCards.get(cardIndex));
-                surplusCards.remove(cardIndex);
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Seat seat1 : seats) {
+            stringBuilder.append(",").append(seat1.getUserId());
+        }
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("userIds", stringBuilder.toString().substring(1));
+        ApiResponse<List<User>> usersResponse = JSON.parseObject(HttpUtil.urlConnectionByRsa(Constant.apiUrl + Constant.userListUrl, jsonObject.toJSONString()),
+                new TypeReference<ApiResponse<List<User>>>() {
+                });
+        if (0 == usersResponse.getCode()) {
+            List<User> users = usersResponse.getData();
+            Map<Integer, User> userMap = new HashMap<>();
+            for (User user : users) {
+                userMap.put(user.getUserId(), user);
             }
-//            }
 
-            seat.setCards(cardList);
-            seat.setInitialCards(cardList);
+            //卖马 发牌
+            for (Seat seat : seats) {
+                seat.setReady(false);
+                List<Integer> cardList = new ArrayList<>();
+                int cardIndex;
 
-            CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
-                    .setPlayer(majongPlayerData(seat));
-            if (1 == (gameRules >> 1) % 2) {
-                SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
-                if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
-                    sjApplyCalculateData.addXflist(1);
+                switch (userMap.get(seat.getUserId()).getCardType()) {
+                    case 0:
+                        for (int i = 0; i < 13; i++) {
+                            cardIndex = (int) (Math.random() * surplusCards.size());
+                            cardList.add(surplusCards.get(cardIndex));
+                            surplusCards.remove(cardIndex);
+                        }
+                        break;
+                    case 1:
+                        List<Integer> dui = MahjongUtil.get_dui(surplusCards);
+                        int index = (int) (Math.random() * (dui.size() / 2));
+                        cardList.add(dui.get(2 * index));
+                        cardList.add(dui.get(2 * index + 1));
+                        Card.remove(surplusCards, dui.get(2 * index));
+                        Card.remove(surplusCards, dui.get(2 * index + 1));
+                        switch ((int) (Math.random() * 3)) {
+                            case 0:
+                                List<Integer> san = MahjongUtil.get_san(surplusCards);
+                                index = (int) (Math.random() * (san.size() / 3));
+                                cardList.add(san.get(3 * index));
+                                cardList.add(san.get(3 * index + 1));
+                                cardList.add(san.get(3 * index + 2));
+                                Card.remove(surplusCards, san.get(3 * index));
+                                Card.remove(surplusCards, san.get(3 * index + 1));
+                                Card.remove(surplusCards, san.get(3 * index + 2));
+
+                                for (int i = 0; i < 2; i++) {
+                                    List<Integer> shun = MahjongUtil.get_shun(surplusCards);
+                                    index = (int) (Math.random() * (shun.size() / 3));
+                                    cardList.add(shun.get(3 * index));
+                                    cardList.add(shun.get(3 * index + 1));
+                                    cardList.add(shun.get(3 * index + 2));
+                                    Card.remove(surplusCards, shun.get(3 * index));
+                                    Card.remove(surplusCards, shun.get(3 * index + 1));
+                                    Card.remove(surplusCards, shun.get(3 * index + 2));
+                                }
+                                break;
+                            case 1:
+                                List<Integer> si = MahjongUtil.get_si(surplusCards);
+                                index = (int) (Math.random() * (si.size() / 4));
+                                cardList.add(si.get(4 * index));
+                                cardList.add(si.get(4 * index + 1));
+                                cardList.add(si.get(4 * index + 2));
+                                cardList.add(si.get(4 * index + 3));
+                                Card.remove(surplusCards, si.get(4 * index));
+                                Card.remove(surplusCards, si.get(4 * index + 1));
+                                Card.remove(surplusCards, si.get(4 * index + 2));
+                                Card.remove(surplusCards, si.get(4 * index + 3));
+
+
+                                List<Integer> shun = MahjongUtil.get_shun(surplusCards);
+                                index = (int) (Math.random() * (shun.size() / 3));
+                                cardList.add(shun.get(3 * index));
+                                cardList.add(shun.get(3 * index + 1));
+                                cardList.add(shun.get(3 * index + 2));
+                                Card.remove(surplusCards, shun.get(3 * index));
+                                Card.remove(surplusCards, shun.get(3 * index + 1));
+                                Card.remove(surplusCards, shun.get(3 * index + 2));
+                                break;
+                            case 2:
+                                for (int i = 0; i < 3; i++) {
+                                    san = MahjongUtil.get_san(surplusCards);
+                                    index = (int) (Math.random() * (san.size() / 3));
+                                    cardList.add(san.get(3 * index));
+                                    cardList.add(san.get(3 * index + 1));
+                                    cardList.add(san.get(3 * index + 2));
+                                    Card.remove(surplusCards, san.get(3 * index));
+                                    Card.remove(surplusCards, san.get(3 * index + 1));
+                                    Card.remove(surplusCards, san.get(3 * index + 2));
+                                }
+                                break;
+                        }
+                        break;
+                    case 2:
+                        switch ((int) (Math.random() * 5)) {
+                            case 0:
+                                List<Integer> temps = new ArrayList<>();
+                                while (null == temps || temps.size() < 13) {
+                                    temps = Card.getAllSameColor((int) (Math.random() * 3));
+                                }
+                                for (int i = 0; i < 13; i++) {
+                                    cardIndex = (int) (Math.random() * temps.size());
+                                    cardList.add(temps.get(cardIndex));
+                                    surplusCards.remove(temps.get(cardIndex));
+                                }
+                                break;
+                            case 1:
+                                for (int i = 0; i < 5; i++) {
+                                    dui = MahjongUtil.get_dui(surplusCards);
+                                    index = (int) (Math.random() * (dui.size() / 2));
+                                    cardList.add(dui.get(2 * index));
+                                    cardList.add(dui.get(2 * index + 1));
+                                    Card.remove(surplusCards, dui.get(2 * index));
+                                    Card.remove(surplusCards, dui.get(2 * index + 1));
+                                }
+                                break;
+                            case 2:
+                                if (0 < Card.containSize(surplusCards, 41)) {
+                                    cardList.add(41);
+                                    surplusCards.remove(Integer.valueOf(41));
+                                }
+                                if (0 < Card.containSize(surplusCards, 43)) {
+                                    cardList.add(43);
+                                    surplusCards.remove(Integer.valueOf(43));
+                                }
+                                if (0 < Card.containSize(surplusCards, 45)) {
+                                    cardList.add(45);
+                                    surplusCards.remove(Integer.valueOf(45));
+                                }
+                                if (0 < Card.containSize(surplusCards, 47)) {
+                                    cardList.add(47);
+                                    surplusCards.remove(Integer.valueOf(47));
+                                }
+
+                                temps = new ArrayList<>();
+                                while (null == temps || temps.size() < 13 - cardList.size()) {
+                                    temps = Card.getAllSameColor((int) (Math.random() * 3));
+                                }
+                                while (cardList.size() < 13) {
+                                    cardIndex = (int) (Math.random() * temps.size());
+                                    cardList.add(temps.get(cardIndex));
+                                    surplusCards.remove(temps.get(cardIndex));
+                                }
+                                break;
+                            case 3:
+
+                                for (int i = 0; i < 2; i++) {
+                                    dui = MahjongUtil.get_dui(surplusCards);
+                                    index = (int) (Math.random() * (dui.size() / 2));
+                                    cardList.add(dui.get(2 * index));
+                                    cardList.add(dui.get(2 * index + 1));
+                                    Card.remove(surplusCards, dui.get(2 * index));
+                                    Card.remove(surplusCards, dui.get(2 * index + 1));
+                                }
+
+                                for (int i = 0; i < 3; i++) {
+                                    List<Integer> san = MahjongUtil.get_san(surplusCards);
+                                    index = (int) (Math.random() * (san.size() / 3));
+                                    cardList.add(san.get(3 * index));
+                                    cardList.add(san.get(3 * index + 1));
+                                    cardList.add(san.get(3 * index + 2));
+                                    Card.remove(surplusCards, san.get(3 * index));
+                                    Card.remove(surplusCards, san.get(3 * index + 1));
+                                    Card.remove(surplusCards, san.get(3 * index + 2));
+                                }
+                                break;
+                            case 4:
+                                if (0 < Card.containSize(surplusCards, 31)) {
+                                    cardList.add(31);
+                                    surplusCards.remove(Integer.valueOf(31));
+                                }
+                                if (0 < Card.containSize(surplusCards, 33)) {
+                                    cardList.add(33);
+                                    surplusCards.remove(Integer.valueOf(33));
+                                }
+                                if (0 < Card.containSize(surplusCards, 35)) {
+                                    cardList.add(35);
+                                    surplusCards.remove(Integer.valueOf(35));
+                                }
+                                temps = new ArrayList<>();
+                                while (null == temps || temps.size() < 13 - cardList.size()) {
+                                    temps = Card.getAllSameColor((int) (Math.random() * 3));
+                                }
+                                while (cardList.size() < 13) {
+                                    cardIndex = (int) (Math.random() * temps.size());
+                                    cardList.add(temps.get(cardIndex));
+                                    surplusCards.remove(temps.get(cardIndex));
+                                }
+                                break;
+                        }
+                        break;
+                    case 3:
+                        switch ((int) (Math.random() * 4)) {
+                            case 0:
+                                dui = MahjongUtil.get_dui(surplusCards);
+                                index = (int) (Math.random() * (dui.size() / 2));
+                                cardList.add(dui.get(2 * index));
+                                cardList.add(dui.get(2 * index + 1));
+                                Card.remove(surplusCards, dui.get(2 * index));
+                                Card.remove(surplusCards, dui.get(2 * index + 1));
+
+                                for (int i = 0; i < 2; i++) {
+                                    List<Integer> san = MahjongUtil.get_san(surplusCards);
+                                    index = (int) (Math.random() * (san.size() / 3));
+                                    cardList.add(san.get(3 * index));
+                                    cardList.add(san.get(3 * index + 1));
+                                    cardList.add(san.get(3 * index + 2));
+                                    Card.remove(surplusCards, san.get(3 * index));
+                                    Card.remove(surplusCards, san.get(3 * index + 1));
+                                    Card.remove(surplusCards, san.get(3 * index + 2));
+                                }
+                                break;
+                            case 1:
+                                if (0 < Card.containSize(surplusCards, 31)) {
+                                    cardList.add(31);
+                                    surplusCards.remove(Integer.valueOf(31));
+                                }
+                                if (0 < Card.containSize(surplusCards, 33)) {
+                                    cardList.add(33);
+                                    surplusCards.remove(Integer.valueOf(33));
+                                }
+                                if (0 < Card.containSize(surplusCards, 35)) {
+                                    cardList.add(35);
+                                    surplusCards.remove(Integer.valueOf(35));
+                                }
+                                for (int i = 0; i < 2; i++) {
+                                    List<Integer> shun = MahjongUtil.get_shun(surplusCards);
+                                    index = (int) (Math.random() * (shun.size() / 3));
+                                    cardList.add(shun.get(3 * index));
+                                    cardList.add(shun.get(3 * index + 1));
+                                    cardList.add(shun.get(3 * index + 2));
+                                    Card.remove(surplusCards, shun.get(3 * index));
+                                    Card.remove(surplusCards, shun.get(3 * index + 1));
+                                    Card.remove(surplusCards, shun.get(3 * index + 2));
+                                }
+                                break;
+                            case 2:
+                                if (0 < Card.containSize(surplusCards, 41)) {
+                                    cardList.add(41);
+                                    surplusCards.remove(Integer.valueOf(41));
+                                }
+                                if (0 < Card.containSize(surplusCards, 43)) {
+                                    cardList.add(43);
+                                    surplusCards.remove(Integer.valueOf(43));
+                                }
+                                if (0 < Card.containSize(surplusCards, 45)) {
+                                    cardList.add(45);
+                                    surplusCards.remove(Integer.valueOf(45));
+                                }
+                                if (0 < Card.containSize(surplusCards, 47)) {
+                                    cardList.add(47);
+                                    surplusCards.remove(Integer.valueOf(47));
+                                }
+                                List<Integer> san = MahjongUtil.get_san(surplusCards);
+                                index = (int) (Math.random() * (san.size() / 3));
+                                cardList.add(san.get(3 * index));
+                                cardList.add(san.get(3 * index + 1));
+                                cardList.add(san.get(3 * index + 2));
+                                Card.remove(surplusCards, san.get(3 * index));
+                                Card.remove(surplusCards, san.get(3 * index + 1));
+                                Card.remove(surplusCards, san.get(3 * index + 2));
+                                break;
+                            case 3:
+                                dui = MahjongUtil.get_dui(surplusCards);
+                                index = (int) (Math.random() * (dui.size() / 2));
+                                cardList.add(dui.get(2 * index));
+                                cardList.add(dui.get(2 * index + 1));
+                                Card.remove(surplusCards, dui.get(2 * index));
+                                Card.remove(surplusCards, dui.get(2 * index + 1));
+
+                                List<Integer> si = MahjongUtil.get_si(surplusCards);
+                                index = (int) (Math.random() * (si.size() / 4));
+                                cardList.add(si.get(4 * index));
+                                cardList.add(si.get(4 * index + 1));
+                                cardList.add(si.get(4 * index + 2));
+                                cardList.add(si.get(4 * index + 3));
+                                Card.remove(surplusCards, si.get(4 * index));
+                                Card.remove(surplusCards, si.get(4 * index + 1));
+                                Card.remove(surplusCards, si.get(4 * index + 2));
+                                Card.remove(surplusCards, si.get(4 * index + 3));
+
+                                san = MahjongUtil.get_san(surplusCards);
+                                index = (int) (Math.random() * (san.size() / 3));
+                                cardList.add(san.get(3 * index));
+                                cardList.add(san.get(3 * index + 1));
+                                cardList.add(san.get(3 * index + 2));
+                                Card.remove(surplusCards, san.get(3 * index));
+                                Card.remove(surplusCards, san.get(3 * index + 1));
+                                Card.remove(surplusCards, san.get(3 * index + 2));
+                                break;
+                        }
+                        break;
+                    case 4:
+                        switch ((int) (Math.random() * 5)) {
+                            case 0:
+                                dui = MahjongUtil.get_dui(surplusCards);
+                                index = (int) (Math.random() * (dui.size() / 2));
+                                cardList.add(dui.get(2 * index));
+                                cardList.add(dui.get(2 * index + 1));
+                                Card.remove(surplusCards, dui.get(2 * index));
+                                Card.remove(surplusCards, dui.get(2 * index + 1));
+
+                                List<Integer> san = MahjongUtil.get_san(surplusCards);
+                                index = (int) (Math.random() * (san.size() / 3));
+                                cardList.add(san.get(3 * index));
+                                cardList.add(san.get(3 * index + 1));
+                                cardList.add(san.get(3 * index + 2));
+                                Card.remove(surplusCards, san.get(3 * index));
+                                Card.remove(surplusCards, san.get(3 * index + 1));
+                                Card.remove(surplusCards, san.get(3 * index + 2));
+                                break;
+
+                            case 1:
+                                san = MahjongUtil.get_san(surplusCards);
+                                index = (int) (Math.random() * (san.size() / 3));
+                                cardList.add(san.get(3 * index));
+                                cardList.add(san.get(3 * index + 1));
+                                cardList.add(san.get(3 * index + 2));
+                                Card.remove(surplusCards, san.get(3 * index));
+                                Card.remove(surplusCards, san.get(3 * index + 1));
+                                Card.remove(surplusCards, san.get(3 * index + 2));
+
+                                List<Integer> shun = MahjongUtil.get_shun(surplusCards);
+                                index = (int) (Math.random() * (shun.size() / 3));
+                                cardList.add(shun.get(3 * index));
+                                cardList.add(shun.get(3 * index + 1));
+                                cardList.add(shun.get(3 * index + 2));
+                                Card.remove(surplusCards, shun.get(3 * index));
+                                Card.remove(surplusCards, shun.get(3 * index + 1));
+                                Card.remove(surplusCards, shun.get(3 * index + 2));
+                                break;
+                            case 2:
+                                if (0 < Card.containSize(surplusCards, 41)) {
+                                    cardList.add(41);
+                                    surplusCards.remove(Integer.valueOf(41));
+                                }
+                                if (0 < Card.containSize(surplusCards, 43)) {
+                                    cardList.add(43);
+                                    surplusCards.remove(Integer.valueOf(43));
+                                }
+                                if (0 < Card.containSize(surplusCards, 45)) {
+                                    cardList.add(45);
+                                    surplusCards.remove(Integer.valueOf(45));
+                                }
+                                if (0 < Card.containSize(surplusCards, 47)) {
+                                    cardList.add(47);
+                                    surplusCards.remove(Integer.valueOf(47));
+                                }
+                                dui = MahjongUtil.get_dui(surplusCards);
+                                index = (int) (Math.random() * (dui.size() / 2));
+                                cardList.add(dui.get(2 * index));
+                                cardList.add(dui.get(2 * index + 1));
+                                Card.remove(surplusCards, dui.get(2 * index));
+                                Card.remove(surplusCards, dui.get(2 * index + 1));
+                                break;
+                            case 3:
+                                if (0 < Card.containSize(surplusCards, 31)) {
+                                    cardList.add(31);
+                                    surplusCards.remove(Integer.valueOf(31));
+                                }
+                                if (0 < Card.containSize(surplusCards, 33)) {
+                                    cardList.add(33);
+                                    surplusCards.remove(Integer.valueOf(33));
+                                }
+                                if (0 < Card.containSize(surplusCards, 35)) {
+                                    cardList.add(35);
+                                    surplusCards.remove(Integer.valueOf(35));
+                                }
+                                shun = MahjongUtil.get_shun(surplusCards);
+                                index = (int) (Math.random() * (shun.size() / 3));
+                                cardList.add(shun.get(3 * index));
+                                cardList.add(shun.get(3 * index + 1));
+                                cardList.add(shun.get(3 * index + 2));
+                                Card.remove(surplusCards, shun.get(3 * index));
+                                Card.remove(surplusCards, shun.get(3 * index + 1));
+                                Card.remove(surplusCards, shun.get(3 * index + 2));
+                                break;
+                            case 4:
+                                if (0 < Card.containSize(surplusCards, 31)) {
+                                    cardList.add(31);
+                                    surplusCards.remove(Integer.valueOf(31));
+                                }
+                                if (0 < Card.containSize(surplusCards, 33)) {
+                                    cardList.add(33);
+                                    surplusCards.remove(Integer.valueOf(33));
+                                }
+                                if (0 < Card.containSize(surplusCards, 35)) {
+                                    cardList.add(35);
+                                    surplusCards.remove(Integer.valueOf(35));
+                                }
+                                san = MahjongUtil.get_san(surplusCards);
+                                index = (int) (Math.random() * (san.size() / 3));
+                                cardList.add(san.get(3 * index));
+                                cardList.add(san.get(3 * index + 1));
+                                cardList.add(san.get(3 * index + 2));
+                                Card.remove(surplusCards, san.get(3 * index));
+                                Card.remove(surplusCards, san.get(3 * index + 1));
+                                Card.remove(surplusCards, san.get(3 * index + 2));
+                                break;
+                        }
+                        break;
                 }
-                if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
-                    sjApplyCalculateData.addXflist(2);
+
+                while (cardList.size() < 13) {
+                    cardIndex = (int) (Math.random() * surplusCards.size());
+                    cardList.add(surplusCards.get(cardIndex));
+                    surplusCards.remove(cardIndex);
                 }
-                calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
-            }
 
-            ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
-            MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
-            CalculateResult calculateResult = blockingStub.calculate(calculateData.build());
-            ChannelPool.distoryChannel(channelInfo);
+                seat.setCards(cardList);
+                seat.setInitialCards(cardList);
 
-            seat.getCanChi().clear();
-            seat.getCanChi().addAll(calculateResult.getChiList());
-            seat.getCanPeng().clear();
-            seat.getCanPeng().addAll(calculateResult.getPengList());
-            seat.getCanGang().clear();
-            seat.getCanGang().addAll(calculateResult.getGangList());
-            seat.getCanHu().clear();
-            seat.getCanHu().addAll(calculateResult.getHuList());
-            try {
-                seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
-            } catch (InvalidProtocolBufferException e) {
-                e.printStackTrace();
-            }
+                CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
+                        .setPlayer(majongPlayerData(seat));
+                if (1 == (gameRules >> 1) % 2) {
+                    SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
+                    if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
+                        sjApplyCalculateData.addXflist(1);
+                    }
+                    if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
+                        sjApplyCalculateData.addXflist(2);
+                    }
+                    calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
+                }
 
-            if (seat.getUserId() == banker) {
-                operationSeatNo = seat.getSeatNo();
-                cardIndex = (int) (Math.random() * surplusCards.size());
-                seat.getCards().add(surplusCards.get(cardIndex));
-                surplusCards.remove(cardIndex);
+                ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
+                MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
+                CalculateResult calculateResult = blockingStub.calculate(calculateData.build());
+                ChannelPool.distoryChannel(channelInfo);
+
+                seat.getCanChi().clear();
+                seat.getCanChi().addAll(calculateResult.getChiList());
+                seat.getCanPeng().clear();
+                seat.getCanPeng().addAll(calculateResult.getPengList());
+                seat.getCanGang().clear();
+                seat.getCanGang().addAll(calculateResult.getGangList());
+                seat.getCanHu().clear();
+                seat.getCanHu().addAll(calculateResult.getHuList());
+                try {
+                    seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
+                } catch (InvalidProtocolBufferException e) {
+                    logger.error(e.toString(), e);
+                }
+
+                if (seat.getUserId() == banker) {
+                    operationSeatNo = seat.getSeatNo();
+                    cardIndex = (int) (Math.random() * surplusCards.size());
+                    seat.getCards().add(surplusCards.get(cardIndex));
+                    surplusCards.remove(cardIndex);
+                }
             }
         }
-
     }
 
     public int getNextSeat() {
@@ -392,8 +762,8 @@ public class Room {
         actionResponse.setID(username[0]);
 
         historyList.add(new OperationHistory(username[0], OperationHistoryType.GET_CARD, card1));
-        Mahjong.MahjongGetCardResponse.Builder builder1 = Mahjong.MahjongGetCardResponse.newBuilder();
-        builder1.setCard(card1);
+        Mahjong.CardsData.Builder builder1 = Mahjong.CardsData.newBuilder();
+        builder1.addCards(card1);
         Seat operationSeat = null;
         for (Seat seat : seats) {
             if (seat.getSeatNo() == seatNo) {
@@ -441,7 +811,7 @@ public class Room {
                     }
                 }
             } catch (InvalidProtocolBufferException e) {
-                e.printStackTrace();
+                logger.error(e.toString(), e);
             }
         }
 
@@ -475,10 +845,10 @@ public class Room {
                     userResult.setHuCard(card);
                     huCard.put(seat.getUserId(), card);
                     if (1 == (gameRules >> 2) % 2) {
-                        userResult.setPiao(5 * loseSeats.size());
+                        userResult.setPiao(10 * loseSeats.size());
                     }
                 } else if (seat.getCardResult().getScore() < 0 && 1 == (gameRules >> 2) % 2) {
-                    userResult.setPiao(-5 * winSeats.size());
+                    userResult.setPiao(-10 * winSeats.size());
                 }
                 for (ScoreType scoreType : seat.getCardResult().getScoreTypes()) {
                     userResult.addScoreTypes(Mahjong.ScoreType.forNumber(scoreType.ordinal() - 3));
@@ -664,7 +1034,7 @@ public class Room {
             int ss = SerializerFeature.config(JSON.DEFAULT_GENERATE_FEATURE, SerializerFeature.WriteEnumUsingName, false);
             SocketRequest socketRequest = new SocketRequest();
             socketRequest.setUserId(roomOwner);
-            CoreHttpUtils.urlConnectionByRsa("http://127.0.0.1:10110/3", JSON.toJSONString(socketRequest, ss, features));
+            HttpUtil.urlConnectionByRsa(Constant.notifyRoomList, JSON.toJSONString(socketRequest, ss, features));
         }
         roomNo = null;
     }
@@ -746,7 +1116,7 @@ public class Room {
             SettleData.Builder settleData = SettleData.newBuilder();
             settleData.setAllocId(3);
             settleData.setBanker(banker);
-            settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 5 : 0).setTop(singleFan ? 1 : 4).build().toByteString());
+            settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 10 : 0).setTop(singleFan ? 1 : 4).build().toByteString());
             for (Seat seat : seats) {
                 SettlePlayerData.Builder settlePlayerData = SettlePlayerData.newBuilder();
                 settlePlayerData.setAdjunct(SjPlayerSettleData.newBuilder().addAllXflist(seat.getXfGangCards()).build().toByteString());
@@ -774,15 +1144,15 @@ public class Room {
             SettleResult settleResult = blockingStub.settle(settleData.build());
             ChannelPool.distoryChannel(channelInfo);
 
-
             operationSeat[0].setZimoCount(operationSeat[0].getZimoCount() + 1);
 
             response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.HU)
-                    .setID(operationSeat[0].getUserId()).setData(Mahjong.MahjongHuResponse.newBuilder().setCard(operationSeat[0].getCards().size() - 1)
+                    .setID(operationSeat[0].getUserId()).setData(Mahjong.CardsData.newBuilder().addCards(operationSeat[0].getCards().size() - 1)
                             .build().toByteString()).build().toByteString());
             seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                     .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
 
+            operationSeat[0].getCards().remove(operationSeat[0].getCards().size() - 1);
             gameOver(response, redisService, operationSeat[0].getCards().get(operationSeat[0].getCards().size() - 1), settleResult);
             return;
         }
@@ -800,7 +1170,8 @@ public class Room {
         if (historyList.size() > 2) {
             if (0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
                     || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.AN_GANG)
-                    || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.BA_GANG)) {
+                    || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.BA_GANG)
+                    || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.XF_GANG)) {
                 gangkai = true;
             }
         }
@@ -808,7 +1179,7 @@ public class Room {
         SettleData.Builder settleData = SettleData.newBuilder();
         settleData.setAllocId(3);
         settleData.setBanker(banker);
-        settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 5 : 0).setTop(singleFan ? 1 : 4).build().toByteString());
+        settleData.setAdjunct(SjApplySettleData.newBuilder().setNormal(normal).setPiao(1 == (gameRules >> 2) % 2 ? 10 : 0).setTop(singleFan ? 1 : 4).build().toByteString());
 
         List<Seat> arraySeats = new ArrayList<>();
         for (Seat seat : seats) {
@@ -837,24 +1208,20 @@ public class Room {
                 seat.setDianpaoCount(seat.getZimoCount() + 1);
                 historyList.add(new OperationHistory(operationSeat[0].getUserId(), OperationHistoryType.HU, card));
                 response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.HU)
-                        .setID(seat.getUserId()).setData(Mahjong.MahjongHuResponse.newBuilder().setCard(seat.getCards().size() - 1)
+                        .setID(seat.getUserId()).setData(Mahjong.CardsData.newBuilder().addCards(seat.getCards().size() - 1)
                                 .build().toByteString()).build().toByteString());
                 seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                         .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
                 hu = true;
             } else {
-                if (normal) {
+                if (seat.getSeatNo() == operationSeatNo) {
                     if (gangkai) {
                         settlePlayerData.setSettle(SettleType.GANG_PAO);
                     } else {
                         settlePlayerData.setSettle(SettleType.FANG_PAO);
                     }
-                } else if (seat.getSeatNo() == operationSeatNo) {
-                    if (gangkai) {
-                        settlePlayerData.setSettle(SettleType.GANG_PAO);
-                    } else {
-                        settlePlayerData.setSettle(SettleType.FANG_PAO);
-                    }
+                } else {
+                    settlePlayerData.setSettle(SettleType.PING_JU);
                 }
             }
             settleData.addPlayerList(settlePlayerData);
@@ -887,6 +1254,9 @@ public class Room {
                 Card.remove(seat.getCards(), card);
 
                 seat.getAnGangCards().add(card);
+                seat.getAnGangCards().add(card);
+                seat.getAnGangCards().add(card);
+                seat.getAnGangCards().add(card);
 
                 List<ScoreType> scoreTypes = new ArrayList<>();
                 scoreTypes.add(ScoreType.AN_GANG);
@@ -907,7 +1277,7 @@ public class Room {
                 seat.setAngang(seat.getAngang() + 1);
                 historyList.add(new OperationHistory(seat.getUserId(), OperationHistoryType.AN_GANG, card));
 
-                actionResponse.setOperationId(GameBase.ActionId.AN_GANG).setData(Mahjong.MahjongGang.newBuilder().addCard(card).build().toByteString());
+                actionResponse.setOperationId(GameBase.ActionId.AN_GANG).setData(Mahjong.CardsData.newBuilder().addCards(card).build().toByteString());
                 response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                 seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                         .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
@@ -942,15 +1312,18 @@ public class Room {
                 try {
                     seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                 } catch (InvalidProtocolBufferException e) {
-                    e.printStackTrace();
+                    logger.error(e.toString(), e);
                 }
 
 
                 getCard(response, seat.getSeatNo(), redisService);
-            } else if (1 == Card.containSize(seat.getPengCards(), card) && 1 == Card.containSize(seat.getCards(), card)) {//扒杠
+            } else if (0 < Card.containSize(seat.getPengCards(), card) && 1 == Card.containSize(seat.getCards(), card)) {//扒杠
                 Card.remove(seat.getCards(), card);
                 Card.remove(seat.getPengCards(), card);
 
+                seat.getMingGangCards().add(card);
+                seat.getMingGangCards().add(card);
+                seat.getMingGangCards().add(card);
                 seat.getMingGangCards().add(card);
 
                 List<ScoreType> scoreTypes = new ArrayList<>();
@@ -972,7 +1345,7 @@ public class Room {
                 seat.setMinggang(seat.getMinggang() + 1);
                 historyList.add(new OperationHistory(seat.getUserId(), OperationHistoryType.BA_GANG, card));
 
-                actionResponse.setOperationId(GameBase.ActionId.BA_GANG).setData(Mahjong.MahjongGang.newBuilder().addCard(card).build().toByteString());
+                actionResponse.setOperationId(GameBase.ActionId.BA_GANG).setData(Mahjong.CardsData.newBuilder().addCards(card).build().toByteString());
                 response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                 seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                         .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
@@ -1005,7 +1378,7 @@ public class Room {
                 try {
                     seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                 } catch (InvalidProtocolBufferException e) {
-                    e.printStackTrace();
+                    logger.error(e.toString(), e);
                 }
 
                 getCard(response, seat.getSeatNo(), redisService);
@@ -1059,7 +1432,7 @@ public class Room {
 
                 historyList.add(new OperationHistory(seat.getUserId(), OperationHistoryType.XF_GANG, cardList));
 
-                actionResponse.setOperationId(GameBase.ActionId.XF_GANG).setData(Mahjong.MahjongGang.newBuilder().addAllCard(cardList).build().toByteString());
+                actionResponse.setOperationId(GameBase.ActionId.XF_GANG).setData(Mahjong.CardsData.newBuilder().addAllCards(cardList).build().toByteString());
                 response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                 seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                         .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
@@ -1095,7 +1468,7 @@ public class Room {
                     try {
                         seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                     } catch (InvalidProtocolBufferException e) {
-                        e.printStackTrace();
+                        logger.error(e.toString(), e);
                     }
                     getCard(response, seat.getSeatNo(), redisService);
                 } else {
@@ -1434,6 +1807,9 @@ public class Room {
                     Card.remove(seat.getCards(), card[0]);
                     Card.remove(seat.getCards(), card[0]);
                     seat.getMingGangCards().add(card[0]);
+                    seat.getMingGangCards().add(card[0]);
+                    seat.getMingGangCards().add(card[0]);
+                    seat.getMingGangCards().add(card[0]);
 
                     //添加结算
                     List<ScoreType> scoreTypes = new ArrayList<>();
@@ -1457,8 +1833,8 @@ public class Room {
 
                     operationSeat.getPlayedCards().remove(operationSeat.getPlayedCards().size() - 1);
 
-                    actionResponse.setOperationId(GameBase.ActionId.DIAN_GANG).setData(Mahjong.MahjongGang.newBuilder()
-                            .addCard(card[0]).build().toByteString());
+                    actionResponse.setOperationId(GameBase.ActionId.DIAN_GANG).setData(Mahjong.CardsData.newBuilder()
+                            .addCards(card[0]).build().toByteString());
                     response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                     seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                             .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
@@ -1492,7 +1868,7 @@ public class Room {
                     try {
                         seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                     } catch (InvalidProtocolBufferException e) {
-                        e.printStackTrace();
+                        logger.error(e.toString(), e);
                     }
 
                     //点杠后需要摸牌
@@ -1502,12 +1878,14 @@ public class Room {
                     Card.remove(seat.getCards(), card[0]);
                     Card.remove(seat.getCards(), card[0]);
                     seat.getPengCards().add(card[0]);
+                    seat.getPengCards().add(card[0]);
+                    seat.getPengCards().add(card[0]);
                     operationSeatNo = seat.getSeatNo();
                     historyList.add(new OperationHistory(userId, OperationHistoryType.PENG, card[0]));
 
                     operationSeat.getPlayedCards().remove(operationSeat.getPlayedCards().size() - 1);
 
-                    actionResponse.setOperationId(GameBase.ActionId.PENG).setData(Mahjong.MahjongPengResponse.newBuilder().setCard(card[0]).build().toByteString());
+                    actionResponse.setOperationId(GameBase.ActionId.PENG).setData(Mahjong.CardsData.newBuilder().addCards(card[0]).build().toByteString());
                     response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                     seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                             .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
@@ -1536,7 +1914,14 @@ public class Room {
                         List<Integer> chiCard = new ArrayList<>();
                         Card.removeAll(seat.getCards(), seat.getChiTemp());
                         chiCard.addAll(seat.getChiTemp());
-                        chiCard.add(card[0]);
+                        chiCard.sort(new Comparator<Integer>() {
+                            @Override
+                            public int compare(Integer o1, Integer o2) {
+                                return o1.compareTo(o2);
+                            }
+                        });
+                        chiCard.add(1, card[0]);
+
                         seat.getChiCards().addAll(chiCard);
 
                         operationSeatNo = seat.getSeatNo();
@@ -1544,7 +1929,7 @@ public class Room {
 
                         operationSeat.getPlayedCards().remove(operationSeat.getPlayedCards().size() - 1);
                         actionResponse.setID(seat.getUserId());
-                        actionResponse.setOperationId(GameBase.ActionId.CHI).setData(Mahjong.MahjongChi.newBuilder().addAllCards(chiCard).build().toByteString());
+                        actionResponse.setOperationId(GameBase.ActionId.CHI).setData(Mahjong.CardsData.newBuilder().addAllCards(chiCard).build().toByteString());
                         response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                         seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                                 .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
@@ -1639,7 +2024,7 @@ public class Room {
                             seat.setPlayedCards(new ArrayList<>());
                         }
                         seat.getPlayedCards().add(card);
-                        Mahjong.MahjongPlayCard.Builder builder = Mahjong.MahjongPlayCard.newBuilder().setCard(card);
+                        Mahjong.CardsData.Builder builder = Mahjong.CardsData.newBuilder().addCards(card);
 
                         actionResponse.setOperationId(GameBase.ActionId.PLAY_CARD).setData(builder.build().toByteString());
 
@@ -1679,7 +2064,7 @@ public class Room {
                         try {
                             seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                         } catch (InvalidProtocolBufferException e) {
-                            e.printStackTrace();
+                            logger.error(e.toString(), e);
                         }
 
                         //先检查其它三家牌，是否有人能胡、杠、碰
