@@ -161,7 +161,7 @@ public class MessageReceive implements Runnable {
             logger.info("socket.shutdown.message" + client.userId);
             close();
         } catch (IOException e) {
-            logger.error("socket.dirty.shutdown.message" + e.getMessage() + client.userId, e);
+            logger.info("socket.dirty.shutdown.message" + e.getMessage() + client.userId);
             close();
         } catch (Exception e) {
             logger.info("socket.dirty.shutdown.message" + client.userId, e);

@@ -325,12 +325,13 @@ public class Room {
                             case 0:
                                 List<Integer> temps = new ArrayList<>();
                                 while (null == temps || temps.size() < 13) {
-                                    temps = Card.getAllSameColor((int) (Math.random() * 3));
+                                    temps = Card.getAllSameColor(surplusCards, (int) (Math.random() * 3));
                                 }
                                 for (int i = 0; i < 13; i++) {
                                     cardIndex = (int) (Math.random() * temps.size());
                                     cardList.add(temps.get(cardIndex));
                                     surplusCards.remove(temps.get(cardIndex));
+                                    temps.remove(cardIndex);
                                 }
                                 break;
                             case 1:
@@ -363,12 +364,13 @@ public class Room {
 
                                 temps = new ArrayList<>();
                                 while (null == temps || temps.size() < 13 - cardList.size()) {
-                                    temps = Card.getAllSameColor((int) (Math.random() * 3));
+                                    temps = Card.getAllSameColor(surplusCards, (int) (Math.random() * 3));
                                 }
                                 while (cardList.size() < 13) {
                                     cardIndex = (int) (Math.random() * temps.size());
                                     cardList.add(temps.get(cardIndex));
                                     surplusCards.remove(temps.get(cardIndex));
+                                    temps.remove(cardIndex);
                                 }
                                 break;
                             case 3:
@@ -408,12 +410,13 @@ public class Room {
                                 }
                                 temps = new ArrayList<>();
                                 while (null == temps || temps.size() < 13 - cardList.size()) {
-                                    temps = Card.getAllSameColor((int) (Math.random() * 3));
+                                    temps = Card.getAllSameColor(surplusCards, (int) (Math.random() * 3));
                                 }
                                 while (cardList.size() < 13) {
                                     cardIndex = (int) (Math.random() * temps.size());
                                     cardList.add(temps.get(cardIndex));
                                     surplusCards.remove(temps.get(cardIndex));
+                                    temps.remove(cardIndex);
                                 }
                                 break;
                         }
@@ -905,8 +908,6 @@ public class Room {
             }
         }
 
-        banker = tempBanker;
-
         for (Mahjong.MahjongUserResult.Builder userResult : resultResponse.getUserResultBuilderList()) {
             int win = userResult.getCardScore() + userResult.getGangScore();
             userResult.setWinOrLose(win);
@@ -923,6 +924,7 @@ public class Room {
         seats.stream().filter(seat -> MahjongTcpService.userClients.containsKey(seat.getUserId()))
                 .forEach(seat -> MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId()));
         clear(huCard);
+        banker = tempBanker;
         //结束房间
         if (gameCount == gameTimes) {
             roomOver(response, redisService);
@@ -1061,7 +1063,7 @@ public class Room {
         if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < surplusCards.size()) {
             builder.addOperationId(GameBase.ActionId.BA_GANG);
         }
-        if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (gameRules >> 1) % 2) {
+        if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (gameRules >> 1) % 2 && 0 < surplusCards.size()) {
             builder.addOperationId(GameBase.ActionId.XF_GANG);
         }
         if (0 != builder.getOperationIdCount()) {
@@ -1152,8 +1154,8 @@ public class Room {
             seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                     .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
 
-            operationSeat[0].getCards().remove(operationSeat[0].getCards().size() - 1);
-            gameOver(response, redisService, operationSeat[0].getCards().get(operationSeat[0].getCards().size() - 1), settleResult);
+            Integer card = operationSeat[0].getCards().remove(operationSeat[0].getCards().size() - 1);
+            gameOver(response, redisService, card, settleResult);
             return;
         }
 
@@ -1205,7 +1207,7 @@ public class Room {
                 } else {
                     settlePlayerData.setSettle(SettleType.HU_PAO);
                 }
-                seat.setDianpaoCount(seat.getZimoCount() + 1);
+                seat.setHuCount(seat.getHuCount() + 1);
                 historyList.add(new OperationHistory(operationSeat[0].getUserId(), OperationHistoryType.HU, card));
                 response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.HU)
                         .setID(seat.getUserId()).setData(Mahjong.CardsData.newBuilder().addCards(seat.getCards().size() - 1)
@@ -1227,6 +1229,7 @@ public class Room {
             settleData.addPlayerList(settlePlayerData);
         }
         if (hu) {
+            operationSeat[0].setDianpaoCount(operationSeat[0].getDianpaoCount() + 1);
             ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
             MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
             SettleResult settleResult = blockingStub.settle(settleData.build());
@@ -1664,6 +1667,10 @@ public class Room {
             } else if (2 <= containSize && seat.getOperation() != 4) {
                 hasNoOperation[0] = true;
             }
+
+            if (1 == Card.containSize(seat.getCanChi(), card[0]) && 0 != seat.getChiTemp().size()) {
+                hasNoOperation[0] = true;
+            }
         });
 
         return hasNoOperation[0];
@@ -1716,9 +1723,6 @@ public class Room {
      * @return
      */
     public boolean checkCanHu(int userId) {
-        if (userId == operationSeatNo) {
-            return true;
-        }
         final Integer[] card = new Integer[1];
         seats.stream().filter(seat -> seat.getSeatNo() == operationSeatNo)
                 .forEach(seat -> card[0] = seat.getPlayedCards().get(seat.getPlayedCards().size() - 1));

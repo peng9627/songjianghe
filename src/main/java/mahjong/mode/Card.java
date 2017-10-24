@@ -19,6 +19,16 @@ public class Card {
         return size;
     }
 
+    public static List<Integer> getAllSameColor(List<Integer> cardList, int color) {
+        List<Integer> cards = new ArrayList<>();
+        for (Integer card : cardList) {
+            if (card / 10 == color) {
+                cards.add(card);
+            }
+        }
+        return cards;
+    }
+
     public static List<Integer> getAllCard() {
         return new ArrayList<>(
                 Arrays.asList(1, 1, 1, 1,

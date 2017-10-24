@@ -116,7 +116,7 @@ public class MahjongClient {
 
                             Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
                             roomCardIntoResponseBuilder.setRoomOwner(room.getRoomOwner());
-                            roomCardIntoResponseBuilder.setStarted(0 != room.getGameStatus().compareTo(GameStatus.READYING) && 0 != room.getGameStatus().compareTo(GameStatus.WAITING));
+                            roomCardIntoResponseBuilder.setStarted(0 != room.getGameStatus().compareTo(GameStatus.WAITING));
 
                             //房间是否已存在当前用户，存在则为重连
                             final boolean[] find = {false};
@@ -374,9 +374,9 @@ public class MahjongClient {
                                 }
                                 room.getSeats().stream().filter(seat -> seat.getUserId() == userId &&
                                         room.getOperationSeatNo() != seat.getSeatNo()).forEach(seat -> seat.setOperation(3));
-//                                if (room.checkSurplus()) { //如果可以碰、杠牌，则碰、杠
-                                room.operation(actionResponse, response, redisService, userId);
-//                                }
+                                if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
+                                    room.operation(actionResponse, response, redisService, userId);
+                                }
                                 break;
                             case AN_GANG:
                             case BA_GANG:
@@ -409,9 +409,9 @@ public class MahjongClient {
                                 }
                                 room.getSeats().stream().filter(seat -> seat.getUserId() == userId &&
                                         room.getOperationSeatNo() != seat.getSeatNo()).forEach(seat -> seat.setOperation(2));
-//                                if (room.checkSurplus()) { //如果可以碰、杠牌，则碰、杠
-                                room.operation(actionResponse, response, redisService, userId);
-//                                }
+                                if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
+                                    room.operation(actionResponse, response, redisService, userId);
+                                }
                                 break;
                             case CHI:
                                 if (0 < room.getHistoryList().size()) {
@@ -441,8 +441,12 @@ public class MahjongClient {
                                 }
                                 break;
                             case HU:
-                                room.getSeats().stream().filter(seat -> seat.getUserId() == userId).forEach(seat -> seat.setOperation(1));
-                                if (room.checkCanHu(userId)) {
+                                final boolean[] isSelf = {false};
+                                room.getSeats().stream().filter(seat -> seat.getUserId() == userId).forEach(seat -> {
+                                    seat.setOperation(1);
+                                    isSelf[0] = room.getOperationSeatNo() == seat.getSeatNo();
+                                });
+                                if (isSelf[0] || room.checkCanHu(userId)) {
                                     room.hu(userId, response, redisService);//胡
                                 }
                                 break;
