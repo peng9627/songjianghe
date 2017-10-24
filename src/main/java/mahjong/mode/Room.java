@@ -936,10 +936,19 @@ public class Room {
         if (0 == gameStatus.compareTo(GameStatus.WAITING)) {
             jsonObject.clear();
             jsonObject.put("flowType", 1);
-            if (8 == gameTimes) {
-                jsonObject.put("money", 1);
-            } else {
-                jsonObject.put("money", 2);
+            switch (gameTimes) {
+                case 2:
+                case 12:
+                    jsonObject.put("money", 1);
+                    break;
+                case 4:
+                case 24:
+                    jsonObject.put("money", 2);
+                    break;
+                case 8:
+                case 48:
+                    jsonObject.put("money", 4);
+                    break;
             }
             jsonObject.put("description", "开房间退回" + roomNo);
             jsonObject.put("userId", roomOwner);
