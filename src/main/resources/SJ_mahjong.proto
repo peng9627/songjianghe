@@ -11,7 +11,7 @@ enum SjSettlePatterns {
     LIMEN = 2; //立门
     HUNYISE = 3; //混一色
     SHOUBAYI = 4; //手把一
-    GANGHOUKAI = 5; //杠后开
+    GANGHOUFAN = 5; //杠后翻
     QINGYISE = 6; //清一色
     YIBANGAO = 7; //一般高
     SIGUIYI = 8; //四归一
@@ -23,14 +23,16 @@ enum SjSettlePatterns {
     ZIMO = 14; //自摸
     ZUOZHUANG = 15; //坐庄
     XUANFENGGANG = 16; //旋风杠
+    GANGHOUPAO = 17; //杠后炮
 }
 
 message SjApplyCalculateData {
     bool xuanfeng = 1; //是否旋风杠
     repeated int32 xflist = 2; //是否已经旋风杠 1为中发白的旋风杠，2为东南西北的旋风杠
+    bool yifan = 3; //一番封顶
 }
 
-message SjPlayerSettleDate {
+message SjPlayerSettleData {
     repeated int32 xflist = 1; //这里是包含了旋风杠本身的牌和补杠的牌
 
 }
@@ -48,6 +50,7 @@ message SjSingleSettleResult {
     int32 gang_score = 3; //杠分
     int32 total_score = 4; //总得分
     repeated SjSettlePatterns patterns = 5; //牌型结算
+    int32 fan = 6; //番数
 }
 
 message SjSettleResult {

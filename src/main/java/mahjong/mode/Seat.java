@@ -49,7 +49,9 @@ public class Seat {
     private List<Integer> canGang = new ArrayList<>();
     private List<Integer> canHu = new ArrayList<>();
     private List<Integer> canXfGang = new ArrayList<>();
+    private List<Integer> canZimo = new ArrayList<>();
     private boolean win;
+    private int gangHuScore;
 
     public int getSeatNo() {
         return seatNo;
@@ -347,12 +349,28 @@ public class Seat {
         this.canXfGang = canXfGang;
     }
 
+    public List<Integer> getCanZimo() {
+        return canZimo;
+    }
+
+    public void setCanZimo(List<Integer> canZimo) {
+        this.canZimo = canZimo;
+    }
+
     public boolean isWin() {
         return win;
     }
 
     public void setWin(boolean win) {
         this.win = win;
+    }
+
+    public int getGangHuScore() {
+        return gangHuScore;
+    }
+
+    public void setGangHuScore(int gangHuScore) {
+        this.gangHuScore = gangHuScore;
     }
 
     public void clear() {
@@ -375,5 +393,7 @@ public class Seat {
         canPeng.clear();
         canHu.clear();
         canXfGang.clear();
+        canZimo.clear();
+        gangHuScore = 0;
     }
 }

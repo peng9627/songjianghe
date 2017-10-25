@@ -53,7 +53,8 @@ message CalculateResult {
     repeated int32 peng = 2; //能够碰的牌
     repeated int32 gang = 3; //能够杠的牌
     repeated int32 hu = 4; //能够胡的牌
-    bytes adjunct = 5; //附加操作
+    repeated int32 zimo = 5; //能自摸的牌
+    bytes adjunct = 6; //附加操作
 }
 
 enum SettleType {

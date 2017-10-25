@@ -106,8 +106,11 @@ public class MessageReceive implements Runnable {
         return ((ch4 & 0xFF) | ((ch3 & 0xff) << 8) | ((ch2 & 0xff) << 16) | ch1 << 24);
     }
 
-    private String readString(InputStream is) throws IOException {
+    private String readString(InputStream is, int length) throws IOException {
         int len = readInt(is);
+        if (0 != length && len != length) {
+            return null;
+        }
         byte[] bytes = new byte[len];
         is.read(bytes);
         return new String(bytes);
@@ -138,7 +141,12 @@ public class MessageReceive implements Runnable {
         try {
             while (connect) {
                 int len = readInt(is);
-                String md5 = readString(is);
+                String md5 = readString(is, 32);
+                if (null == md5) {
+                    logger.info("illegal md5" + client.userId);
+                    close();
+                    return;
+                }
                 len -= md5.getBytes().length + 4;
                 byte[] data = new byte[0];
                 boolean check = true;

@@ -644,17 +644,20 @@ public class Room {
 
                 CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
                         .setPlayer(majongPlayerData(seat));
+                SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                 if (1 == (gameRules >> 1) % 2) {
-                    SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                     if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
                         sjApplyCalculateData.addXflist(1);
                     }
                     if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
                         sjApplyCalculateData.addXflist(2);
                     }
-                    calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                 }
-
+                if (singleFan) {
+                    sjApplyCalculateData.setYifan(true);
+                }
+                calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
+                calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                 ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
                 MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
                 CalculateResult calculateResult = blockingStub.calculate(calculateData.build());
@@ -668,6 +671,8 @@ public class Room {
                 seat.getCanGang().addAll(calculateResult.getGangList());
                 seat.getCanHu().clear();
                 seat.getCanHu().addAll(calculateResult.getHuList());
+                seat.getCanZimo().clear();
+                seat.getCanZimo().addAll(calculateResult.getZimoList());
                 try {
                     seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                 } catch (InvalidProtocolBufferException e) {
@@ -734,7 +739,8 @@ public class Room {
             for (GameResult gameResult : seat.getXfGangResult()) {
                 xfGangScore += gameResult.getScore();
             }
-            seatRecord.setWinOrLose(winOrLose[0] + xfGangScore);
+            seatRecord.setGangHuScore(seat.getGangHuScore());
+            seatRecord.setWinOrLose(winOrLose[0] + xfGangScore + seat.getGangHuScore());
             seatRecords.add(seatRecord);
         });
         record.setSeatRecordList(seatRecords);
@@ -808,7 +814,8 @@ public class Room {
                             for (SjSettlePatterns sjSettlePatterns : sjSingleSettleResult.getPatternsList()) {
                                 scoreTypes.add(ScoreType.valueOf(sjSettlePatterns.name()));
                             }
-                            seat.setCardResult(new GameResult(scoreTypes, card, sjSingleSettleResult.getTotalScore() - sjSingleSettleResult.getGangScore(), 0, sjSingleSettleResult.getFan()));
+                            seat.setGangHuScore(sjSingleSettleResult.getGangHuScore());
+                            seat.setCardResult(new GameResult(scoreTypes, card, sjSingleSettleResult.getTotalScore() - sjSingleSettleResult.getGangScore() - sjSingleSettleResult.getGangHuScore(), 0, sjSingleSettleResult.getFan()));
                             break;
                         }
                     }
@@ -869,7 +876,7 @@ public class Room {
             for (GameResult gameResult : seat.getXfGangResult()) {
                 xfGangScore += gameResult.getScore();
             }
-            userResult.setGangScore(mingGangScore + anGangScore + xfGangScore);
+            userResult.setGangScore(mingGangScore + anGangScore + xfGangScore + seat.getGangHuScore());
             resultResponse.addUserResult(userResult);
         }
 
@@ -881,7 +888,7 @@ public class Room {
             }
         }
 
-        if (1 == winSeats.size()) {
+        if (1 == winSeats.size() && winSeats.get(0) == banker) {
             tempBanker = winSeats.get(0);
 
 //        } else if (1 == loseSeats.size()) {
@@ -1058,7 +1065,7 @@ public class Room {
      */
     public void checkSelfGetCard(GameBase.BaseConnection.Builder response, Seat seat, RedisService redisService, int card) {
         GameBase.AskResponse.Builder builder = GameBase.AskResponse.newBuilder();
-        if (1 == Card.containSize(seat.getCanHu(), card)) {
+        if (1 == Card.containSize(seat.getCanZimo(), card)) {
             builder.addOperationId(GameBase.ActionId.HU);
             if (redisService.exists("room_match" + roomNo)) {
                 new OperationTimeout(seat.getUserId(), roomNo, historyList.size(), gameCount, redisService, true).start();
@@ -1105,7 +1112,7 @@ public class Room {
                 .forEach(seat -> operationSeat[0] = seat);
         boolean gangkai = false;
         //检查是自摸还是点炮,自摸输家是其它三家
-        if (1 == Card.containSize(operationSeat[0].getCanHu(), operationSeat[0].getCards().get(operationSeat[0].getCards().size() - 1)) && operationSeat[0].getUserId() == userId) {
+        if (1 == Card.containSize(operationSeat[0].getCanZimo(), operationSeat[0].getCards().get(operationSeat[0].getCards().size() - 1)) && operationSeat[0].getUserId() == userId) {
 
             if (0 < historyList.size()) {
                 if (0 != historyList.get(historyList.size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
@@ -1278,35 +1285,65 @@ public class Room {
                 if (card % 10 == 1 && card < 30) {
                     score = 8;
                 }
-                int finalScore = score;
-                seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
-                        .forEach(seat1 -> {
-                            seat1.getAnGangResult().add(new GameResult(scoreTypes, card, -finalScore));
-                            loseScore[0] += finalScore;
-                        });
+                if (singleFan) {
+                    if (seat.getUserId() == banker) {
+                        score = 2;
+                    } else {
+                        score = 1;
+                    }
+                    int finalScore = score;
+                    seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
+                            .forEach(seat1 -> {
+                                if (seat1.getUserId() == banker) {
+                                    seat1.getAnGangResult().add(new GameResult(scoreTypes, card, -2));
+                                    loseScore[0] += 2;
+                                } else {
+                                    seat1.getAnGangResult().add(new GameResult(scoreTypes, card, -finalScore));
+                                    loseScore[0] += finalScore;
+                                }
+                            });
+                } else {
+                    int finalScore = score;
+                    seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
+                            .forEach(seat1 -> {
+                                seat1.getAnGangResult().add(new GameResult(scoreTypes, card, -finalScore));
+                                loseScore[0] += finalScore;
+                            });
+                }
+
                 seat.getAnGangResult().add(new GameResult(scoreTypes, card, loseScore[0]));
 
                 seat.setAngang(seat.getAngang() + 1);
                 historyList.add(new OperationHistory(seat.getUserId(), OperationHistoryType.AN_GANG, card));
 
-                actionResponse.setOperationId(GameBase.ActionId.AN_GANG).setData(Mahjong.CardsData.newBuilder().addCards(card).build().toByteString());
-                response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                 seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
-                        .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
+                        .forEach(seat1 -> {
+                            if (seat1.getUserId() == seat.getUserId()) {
+                                actionResponse.setOperationId(GameBase.ActionId.AN_GANG).setData(Mahjong.CardsData.newBuilder().addCards(card).build().toByteString());
+                                response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
+                            } else {
+                                actionResponse.setOperationId(GameBase.ActionId.AN_GANG).setData(Mahjong.CardsData.newBuilder().addCards(0).build().toByteString());
+                                response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
+                            }
+                            MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId());
+                        });
 
 
                 CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
                         .setPlayer(majongPlayerData(seat));
+                SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                 if (1 == (gameRules >> 1) % 2) {
-                    SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                     if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
                         sjApplyCalculateData.addXflist(1);
                     }
                     if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
                         sjApplyCalculateData.addXflist(2);
                     }
-                    calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                 }
+                if (singleFan) {
+                    sjApplyCalculateData.setYifan(true);
+                }
+                calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
 
                 ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
                 MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
@@ -1321,6 +1358,8 @@ public class Room {
                 seat.getCanGang().addAll(calculateResult.getGangList());
                 seat.getCanHu().clear();
                 seat.getCanHu().addAll(calculateResult.getHuList());
+                seat.getCanZimo().clear();
+                seat.getCanZimo().addAll(calculateResult.getZimoList());
                 try {
                     seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                 } catch (InvalidProtocolBufferException e) {
@@ -1331,6 +1370,8 @@ public class Room {
                 getCard(response, seat.getSeatNo(), redisService);
             } else if (0 < Card.containSize(seat.getPengCards(), card) && 1 == Card.containSize(seat.getCards(), card)) {//扒杠
                 Card.remove(seat.getCards(), card);
+                Card.remove(seat.getPengCards(), card);
+                Card.remove(seat.getPengCards(), card);
                 Card.remove(seat.getPengCards(), card);
 
                 seat.getMingGangCards().add(card);
@@ -1346,12 +1387,32 @@ public class Room {
                 if (card % 10 == 1 && card < 30) {
                     score = 4;
                 }
-                int finalScore = score;
-                seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
-                        .forEach(seat1 -> {
-                            seat1.getMingGangResult().add(new GameResult(scoreTypes, card, -finalScore));
-                            loseScore[0] += finalScore;
-                        });
+                if (singleFan) {
+                    if (seat.getUserId() == banker) {
+                        score = 2;
+                    } else {
+                        score = 1;
+                    }
+                    int finalScore = score;
+                    seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
+                            .forEach(seat1 -> {
+                                if (seat1.getUserId() == banker) {
+                                    seat1.getMingGangResult().add(new GameResult(scoreTypes, card, -2));
+                                    loseScore[0] += 2;
+                                } else {
+                                    seat1.getMingGangResult().add(new GameResult(scoreTypes, card, -finalScore));
+                                    loseScore[0] += finalScore;
+                                }
+                            });
+                } else {
+                    int finalScore = score;
+                    seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
+                            .forEach(seat1 -> {
+                                seat1.getMingGangResult().add(new GameResult(scoreTypes, card, -finalScore));
+                                loseScore[0] += finalScore;
+                            });
+                }
+
                 seat.getMingGangResult().add(new GameResult(scoreTypes, card, loseScore[0]));
 
                 seat.setMinggang(seat.getMinggang() + 1);
@@ -1364,16 +1425,19 @@ public class Room {
 
                 CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
                         .setPlayer(majongPlayerData(seat));
+                SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                 if (1 == (gameRules >> 1) % 2) {
-                    SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                     if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
                         sjApplyCalculateData.addXflist(1);
                     }
                     if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
                         sjApplyCalculateData.addXflist(2);
                     }
-                    calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                 }
+                if (singleFan) {
+                    sjApplyCalculateData.setYifan(true);
+                }
+                calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                 ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
                 MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
                 CalculateResult calculateResult = blockingStub.calculate(calculateData.build());
@@ -1387,6 +1451,8 @@ public class Room {
                 seat.getCanGang().addAll(calculateResult.getGangList());
                 seat.getCanHu().clear();
                 seat.getCanHu().addAll(calculateResult.getHuList());
+                seat.getCanZimo().clear();
+                seat.getCanZimo().addAll(calculateResult.getZimoList());
                 try {
                     seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                 } catch (InvalidProtocolBufferException e) {
@@ -1453,16 +1519,19 @@ public class Room {
 
                     CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
                             .setPlayer(majongPlayerData(seat));
+                    SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                     if (1 == (gameRules >> 1) % 2) {
-                        SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                         if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
                             sjApplyCalculateData.addXflist(1);
                         }
                         if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
                             sjApplyCalculateData.addXflist(2);
                         }
-                        calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                     }
+                    if (singleFan) {
+                        sjApplyCalculateData.setYifan(true);
+                    }
+                    calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
 
                     ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
                     MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
@@ -1477,6 +1546,8 @@ public class Room {
                     seat.getCanGang().addAll(calculateResult.getGangList());
                     seat.getCanHu().clear();
                     seat.getCanHu().addAll(calculateResult.getHuList());
+                    seat.getCanZimo().clear();
+                    seat.getCanZimo().addAll(calculateResult.getZimoList());
                     try {
                         seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                     } catch (InvalidProtocolBufferException e) {
@@ -1833,12 +1904,25 @@ public class Room {
                     if (card[0] % 10 == 1 && card[0] < 30) {
                         score = 4;
                     }
-                    int finalScore = score;
-                    seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
-                            .forEach(seat1 -> {
-                                seat1.getMingGangResult().add(new GameResult(scoreTypes, card[0], -finalScore));
-                                loseScore[0] += finalScore;
-                            });
+                    if (singleFan) {
+                        seats.stream().filter(seat1 -> seat1.getSeatNo() == operationSeatNo)
+                                .forEach(seat1 -> {
+                                    if (seat1.getUserId() == banker || seat.getUserId() == banker) {
+                                        seat1.getMingGangResult().add(new GameResult(scoreTypes, card[0], -2));
+                                        loseScore[0] += 2;
+                                    } else {
+                                        seat1.getMingGangResult().add(new GameResult(scoreTypes, card[0], -1));
+                                        loseScore[0] += 1;
+                                    }
+                                });
+                    } else {
+                        int finalScore = score;
+                        seats.stream().filter(seat1 -> seat1.getSeatNo() != seat.getSeatNo())
+                                .forEach(seat1 -> {
+                                    seat1.getMingGangResult().add(new GameResult(scoreTypes, card[0], -finalScore));
+                                    loseScore[0] += finalScore;
+                                });
+                    }
                     seat.getMingGangResult().add(new GameResult(scoreTypes, card[0], loseScore[0], operationSeat.getUserId()));
 
                     seat.setMinggang(seat.getMinggang() + 1);
@@ -1846,7 +1930,7 @@ public class Room {
 
                     operationSeat.getPlayedCards().remove(operationSeat.getPlayedCards().size() - 1);
 
-                    actionResponse.setOperationId(GameBase.ActionId.DIAN_GANG).setData(Mahjong.CardsData.newBuilder()
+                    actionResponse.setID(seat.getUserId()).setOperationId(GameBase.ActionId.DIAN_GANG).setData(Mahjong.CardsData.newBuilder()
                             .addCards(card[0]).build().toByteString());
                     response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString());
                     seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
@@ -1854,16 +1938,19 @@ public class Room {
 
                     CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
                             .setPlayer(majongPlayerData(seat));
+                    SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                     if (1 == (gameRules >> 1) % 2) {
-                        SjApplyCalculateData.Builder builder = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                         if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
-                            builder.addXflist(1);
+                            sjApplyCalculateData.addXflist(1);
                         }
                         if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
-                            builder.addXflist(2);
+                            sjApplyCalculateData.addXflist(2);
                         }
-                        calculateData.setAdjunct(builder.build().toByteString());
                     }
+                    if (singleFan) {
+                        sjApplyCalculateData.setYifan(true);
+                    }
+                    calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
 
                     ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
                     MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.newBlockingStub(channelInfo.getChannel());
@@ -1878,6 +1965,8 @@ public class Room {
                     seat.getCanGang().addAll(calculateResult.getGangList());
                     seat.getCanHu().clear();
                     seat.getCanHu().addAll(calculateResult.getHuList());
+                    seat.getCanZimo().clear();
+                    seat.getCanZimo().addAll(calculateResult.getZimoList());
                     try {
                         seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                     } catch (InvalidProtocolBufferException e) {
@@ -2049,16 +2138,19 @@ public class Room {
 
                         CalculateData.Builder calculateData = CalculateData.newBuilder().setAllocid(3)
                                 .setPlayer(majongPlayerData(seat));
+                        SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                         if (1 == (gameRules >> 1) % 2) {
-                            SjApplyCalculateData.Builder sjApplyCalculateData = SjApplyCalculateData.newBuilder().setXuanfeng(true);
                             if (0 < Card.containSize(seat.getXfGangCards(), 31)) {
                                 sjApplyCalculateData.addXflist(1);
                             }
                             if (0 < Card.containSize(seat.getXfGangCards(), 41)) {
                                 sjApplyCalculateData.addXflist(2);
                             }
-                            calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
                         }
+                        if (singleFan) {
+                            sjApplyCalculateData.setYifan(true);
+                        }
+                        calculateData.setAdjunct(sjApplyCalculateData.build().toByteString());
 
                         ChannelInfo channelInfo = ChannelPool.getInstance().getChannelInfo();
                         MajongCalculateGrpc.MajongCalculateBlockingStub blockingStub = MajongCalculateGrpc.
@@ -2074,6 +2166,8 @@ public class Room {
                         seat.getCanGang().addAll(calculateResult.getGangList());
                         seat.getCanHu().clear();
                         seat.getCanHu().addAll(calculateResult.getHuList());
+                        seat.getCanZimo().clear();
+                        seat.getCanZimo().addAll(calculateResult.getZimoList());
                         try {
                             seat.getCanXfGang().addAll(SjPlayerSettleData.parseFrom(calculateResult.getAdjunct()).getXflistList());
                         } catch (InvalidProtocolBufferException e) {
