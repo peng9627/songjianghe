@@ -209,7 +209,7 @@ public class MahjongClient {
                                             break;
                                         case PLAY_CARD:
                                             if (operationHistory.getUserId() != userId) {
-                                                room.checkSeatCan(operationHistory.getCards().get(0), response, userId, operationHistory.getDate(), redisService);
+                                                room.checkSeatCan(operationHistory.getCards().get(0), response, userId);
                                             }
                                             break;
                                         case XF_GANG:

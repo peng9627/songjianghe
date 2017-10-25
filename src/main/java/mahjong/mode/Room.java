@@ -1589,10 +1589,9 @@ public class Room {
      * @param card         当前出的牌
      * @param response
      * @param redisService
-     * @param userId
      */
 
-    public void checkCard(Integer card, GameBase.BaseConnection.Builder response, RedisService redisService, int userId) {
+    public void checkCard(Integer card, GameBase.BaseConnection.Builder response, RedisService redisService) {
         seats.forEach(seat1 -> {
             seat1.setOperation(0);
             seat1.getChiTemp().clear();
@@ -1659,9 +1658,8 @@ public class Room {
      * 重连时检查出牌后是否有人能胡、杠、碰
      *
      * @param card 当前出的牌
-     * @param date
      */
-    public void checkSeatCan(Integer card, GameBase.BaseConnection.Builder response, int userId, Date date, RedisService redisService) {
+    public void checkSeatCan(Integer card, GameBase.BaseConnection.Builder response, int userId) {
         GameBase.AskResponse.Builder builder = GameBase.AskResponse.newBuilder();
         //先检查胡，胡优先
         seats.stream().filter(seat -> seat.getUserId() == userId).forEach(seat -> {
@@ -1697,29 +1695,6 @@ public class Room {
             }
         });
     }
-
-//    /**
-//     * 当有人胡、碰、杠后，再次检查是否还有人胡、碰、杠
-//     */
-//    public boolean checkSurplus() {
-//        //找到那张牌
-//        final Integer[] card = new Integer[1];
-//        seats.stream().filter(seat -> seat.getSeatNo() == operationSeatNo)
-//                .forEach(seat -> card[0] = seat.getPlayedCards().get(seat.getPlayedCards().size() - 1));
-//        final boolean[] hu = {false};
-//        //先检查胡，胡优先
-//        seats.stream().filter(seat -> seat.getSeatNo() != operationSeatNo).forEach(seat -> {
-//            List<Integer> temp = new ArrayList<>();
-//            temp.addAll(seat.getCards());
-//
-//            //当前玩家是否可以胡牌
-//            temp.add(card[0]);
-//            if (MahjongUtil.checkHu(temp, gameRules, gui) && seat.getOperation() == 0) {
-//                hu[0] = true;
-//            }
-//        });
-//        return !hu[0];
-//    }
 
     /**
      * 检查是否还需要操作
@@ -2175,7 +2150,7 @@ public class Room {
                         }
 
                         //先检查其它三家牌，是否有人能胡、杠、碰
-                        checkCard(card, response, redisService, userId);
+                        checkCard(card, response, redisService);
                     } else {
                         System.out.println("用户手中没有此牌" + userId);
                     }
