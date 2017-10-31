@@ -74,8 +74,8 @@ public class OperationTimeout extends Thread {
                                     seat1.setOperation(0);
                                     seat1.getChiTemp().clear();
                                 });
-                                room.getCard(response, room.getNextSeat(), redisService);
-                            } else {//if (room.checkSurplus()) { //如果可以碰、杠牌，则碰、杠
+                                room.getCard(response, room.getNextSeat(), redisService, false);
+                            } else {//if (room.checkSurplus()) { //如果可以碰0、杠牌，则碰、杠
                                 room.operation(GameBase.BaseAction.newBuilder().setID(seat.getUserId()), response, redisService, userId);
                             }
                         } else {

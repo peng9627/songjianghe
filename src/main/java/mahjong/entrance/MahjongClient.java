@@ -207,11 +207,6 @@ public class MahjongClient {
                                                 }
                                             }
                                             break;
-                                        case PLAY_CARD:
-                                            if (operationHistory.getUserId() != userId) {
-                                                room.checkSeatCan(operationHistory.getCards().get(0), response, userId);
-                                            }
-                                            break;
                                         case XF_GANG:
                                             if (3 == operationHistory.getCards().size()) {
                                                 for (Seat seat : room.getSeats()) {
@@ -238,6 +233,14 @@ public class MahjongClient {
                                                         break;
                                                     }
                                                 }
+                                            }
+                                            if (1 != operationHistory.getCards().size()) {
+                                                break;
+                                            }
+                                        case BA_GANG:
+                                        case PLAY_CARD:
+                                            if (operationHistory.getUserId() != userId) {
+                                                room.checkSeatCan(operationHistory, response, userId);
                                             }
                                             break;
                                     }
@@ -368,7 +371,10 @@ public class MahjongClient {
                                 break;
                             case PENG:
                                 if (0 < room.getHistoryList().size()) {
-                                    if (0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
+                                    OperationHistory operationHistory = room.getHistoryList().get(room.getHistoryList().size() - 1);
+                                    if (0 != operationHistory.getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)
+                                            && 0 != operationHistory.getHistoryType().compareTo(OperationHistoryType.XF_GANG)
+                                            && 0 != operationHistory.getHistoryType().compareTo(OperationHistoryType.BA_GANG)) {
                                         return;
                                     }
                                 }
@@ -376,13 +382,18 @@ public class MahjongClient {
                                         room.getOperationSeatNo() != seat.getSeatNo()).forEach(seat -> seat.setOperation(3));
                                 if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
                                     room.operation(actionResponse, response, redisService, userId);
+                                } else {
+                                    if (room.checkCanHu(0)) {
+                                        room.hu(0, response, redisService);
+                                    }
                                 }
                                 break;
                             case AN_GANG:
                             case BA_GANG:
                                 if (0 < room.getHistoryList().size()) {
-                                    if (0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
-                                            || room.getHistoryList().get(room.getHistoryList().size() - 1).getUserId() != userId) {
+                                    if ((0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
+                                            || room.getHistoryList().get(room.getHistoryList().size() - 1).getUserId() != userId)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.XF_GANG)) {
                                         return;
                                     }
                                 }
@@ -411,6 +422,10 @@ public class MahjongClient {
                                         room.getOperationSeatNo() != seat.getSeatNo()).forEach(seat -> seat.setOperation(2));
                                 if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
                                     room.operation(actionResponse, response, redisService, userId);
+                                } else {
+                                    if (room.checkCanHu(0)) {
+                                        room.hu(0, response, redisService);
+                                    }
                                 }
                                 break;
                             case CHI:
@@ -434,6 +449,10 @@ public class MahjongClient {
                                             if (1 == Card.containSize(seat.getCanChi(), operationHistory.getCards().get(0))) {
                                                 if (room.checkCanChi(seat.getSeatNo())) { //如果可以吃
                                                     room.operation(actionResponse, response, redisService, userId);
+                                                } else {
+                                                    if (room.checkCanHu(0)) {
+                                                        room.hu(0, response, redisService);
+                                                    }
                                                 }
                                             }
                                         });
@@ -454,27 +473,40 @@ public class MahjongClient {
                                 room.getSeats().stream().filter(seat -> seat.getUserId() == userId).forEach(seat -> {
                                     if (room.getOperationSeatNo() != seat.getSeatNo()) {
                                         if (0 < room.getHistoryList().size()) {
-                                            if (0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
+                                            OperationHistory operationHistory = room.getHistoryList().get(room.getHistoryList().size() - 1);
+                                            if (0 != operationHistory.getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)
+                                                    && 0 != operationHistory.getHistoryType().compareTo(OperationHistoryType.XF_GANG)
+                                                    && 0 != operationHistory.getHistoryType().compareTo(OperationHistoryType.BA_GANG)) {
                                                 return;
                                             }
+                                            actionResponse.setOperationId(GameBase.ActionId.PASS).clearData();
+                                            messageReceive.send(response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString()).build(), userId);
+                                            seat.setOperation(4);
+                                            if (!room.passedChecked()) {//如果都操作完了，继续摸牌
+                                                room.getSeats().forEach(seat1 -> {
+                                                    seat1.setOperation(0);
+                                                    seat1.getChiTemp().clear();
+                                                });
+                                                if (0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
+                                                    room.getCard(response, room.getNextSeat(), redisService, false);
+                                                } else {
+                                                    for (Seat seat1 : room.getSeats()) {
+                                                        if (seat1.getUserId() == operationHistory.getUserId()) {
+                                                            room.getCard(response, seat1.getSeatNo(), redisService, false);
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                return;
+                                            } else if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
+                                                room.operation(actionResponse, response, redisService, userId);
+                                                return;
+                                            }
+                                            if (room.checkCanHu(0)) {
+                                                room.hu(0, response, redisService);
+                                            }
                                         }
-                                        actionResponse.setOperationId(GameBase.ActionId.PASS).clearData();
-                                        messageReceive.send(response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString()).build(), userId);
-                                        seat.setOperation(4);
-                                        if (!room.passedChecked()) {//如果都操作完了，继续摸牌
-                                            room.getSeats().forEach(seat1 -> {
-                                                seat1.setOperation(0);
-                                                seat1.getChiTemp().clear();
-                                            });
-                                            room.getCard(response, room.getNextSeat(), redisService);
-                                            return;
-                                        } else if (room.checkCanPeng()) { //如果可以碰、杠牌，则碰、杠
-                                            room.operation(actionResponse, response, redisService, userId);
-                                            return;
-                                        }
-                                        if (room.checkCanHu(0)) {
-                                            room.hu(0, response, redisService);
-                                        }
+
                                     } else {
                                         actionResponse.setOperationId(GameBase.ActionId.PASS).clearData();
                                         messageReceive.send(response.setOperationType(GameBase.OperationType.ACTION).setData(actionResponse.build().toByteString()).build(), userId);
