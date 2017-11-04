@@ -63,6 +63,7 @@ public class DissolveTimeout extends Thread {
                 }
                 room.roomOver(response, redisService);
                 redisService.delete("dissolve" + roomNo);
+                redisService.delete("dissolve_time" + roomNo);
             }
             redisService.unlock("lock_room" + roomNo);
         }

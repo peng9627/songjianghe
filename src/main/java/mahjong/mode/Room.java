@@ -1236,7 +1236,8 @@ public class Room {
             if ((0 == historyList.get(historyList.size() - 4).getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
                     || 0 == historyList.get(historyList.size() - 4).getHistoryType().compareTo(OperationHistoryType.AN_GANG)
                     || 0 == historyList.get(historyList.size() - 4).getHistoryType().compareTo(OperationHistoryType.BA_GANG)
-                    || 0 == historyList.get(historyList.size() - 4).getHistoryType().compareTo(OperationHistoryType.XF_GANG))
+                    || 0 == historyList.get(historyList.size() - 4).getHistoryType().compareTo(OperationHistoryType.XF_GANG)
+                    || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.XF_GANG))
                     && 0 == historyList.get(historyList.size() - 2).getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
                 gangkai = true;
             }
