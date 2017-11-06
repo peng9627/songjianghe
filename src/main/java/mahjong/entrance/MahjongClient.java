@@ -112,8 +112,6 @@ public class MahjongClient {
                             while (!redisService.lock("lock_room" + messageReceive.roomNo)) {
                             }
 
-                            redisService.addCache("reconnect" + userId, "songjianghe_mahjong," + messageReceive.roomNo);
-
                             Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
                             roomCardIntoResponseBuilder.setRoomOwner(room.getRoomOwner());
                             roomCardIntoResponseBuilder.setStarted(0 != room.getGameStatus().compareTo(GameStatus.WAITING));
@@ -135,6 +133,7 @@ public class MahjongClient {
                                     break;
                                 }
                             }
+                            redisService.addCache("reconnect" + userId, "songjianghe_mahjong," + messageReceive.roomNo);
                             room.sendRoomInfo(roomCardIntoResponseBuilder, response, userId);
                             room.sendSeatInfo(response);
 

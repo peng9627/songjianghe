@@ -54,6 +54,8 @@ public class Room {
 
     private boolean gangMo;
 
+    private boolean zhuangying;
+
     public String getRoomNo() {
         return roomNo;
     }
@@ -895,12 +897,6 @@ public class Room {
         }
 
         int tempBanker = 0;
-        for (Seat seat : seats) {
-            if (seat.getUserId() == banker) {
-                seat.setWin(true);
-                break;
-            }
-        }
 
         if (1 == winSeats.size() && winSeats.get(0) == banker) {
             tempBanker = winSeats.get(0);
@@ -908,22 +904,46 @@ public class Room {
 //        } else if (1 == loseSeats.size()) {
 //            tempBanker = loseSeats.get(0);
         } else {
-            for (int i = 0; i < seats.size(); i++) {
-                if (seats.get(i).getUserId() == banker) {
-                    if (i == seats.size() - 1) {
-                        tempBanker = seats.get(0).getUserId();
+            for (Seat seat : seats) {
+                if (seat.getUserId() == banker) {
+                    int bankerSeat = 0;
+                    if (seat.getSeatNo() == seats.size()) {
+                        bankerSeat = 1;
                     } else {
-                        tempBanker = seats.get(i + 1).getUserId();
+                        bankerSeat = seat.getSeatNo() + 1;
+                    }
+                    for (Seat seat1 : seats) {
+                        if (seat1.getSeatNo() == bankerSeat) {
+                            tempBanker = seat1.getUserId();
+                            break;
+                        }
                     }
                     break;
                 }
             }
+//            for (int i = 0; i < seats.size(); i++) {
+//                if (seats.get(i).getUserId() == banker) {
+//                    if (i == seats.size() - 1) {
+//                        tempBanker = seats.get(0).getUserId();
+//                    } else {
+//                        tempBanker = seats.get(i + 1).getUserId();
+//                    }
+//                    break;
+//                }
+//            }
         }
 
         if (banker == tempBanker) {
             for (Seat seat : seats) {
                 if (seat.getUserId() == tempBanker) {
                     seat.setLianzhuang(seat.getLianzhuang() + 1);
+                    break;
+                }
+            }
+        } else {
+            for (Seat seat : seats) {
+                if (seat.getUserId() == banker) {
+                    seat.setWin(true);
                     break;
                 }
             }
@@ -940,7 +960,7 @@ public class Room {
                 }
             }
         }
-
+        zhuangying = banker == tempBanker;
         boolean over = false;
         if (gameCount == gameTimes) {
             if (count != 2) {
@@ -948,12 +968,13 @@ public class Room {
                 for (Seat seat : seats) {
                     if (!seat.isWin()) {
                         allWin = false;
+                        break;
                     }
                 }
                 if (allWin) {
                     over = true;
                 }
-            } else {
+            } else if (!zhuangying) {
                 over = true;
             }
         }
@@ -2246,13 +2267,22 @@ public class Room {
     }
 
     public void start(GameBase.BaseConnection.Builder response, RedisService redisService) {
-        if (2 == count) {
+        if (0 == recordList.size()) {
+            for (Seat seat : seats) {
+                if (seat.getSeatNo() == 1) {
+                    banker = seat.getUserId();
+                    break;
+                }
+            }
+        }
+        if (2 == count && !zhuangying) {
             gameCount = gameCount + 1;
         } else {
             boolean allWin = true;
             for (Seat seat : seats) {
                 if (!seat.isWin()) {
                     allWin = false;
+                    break;
                 }
             }
             if (allWin) {
@@ -2265,16 +2295,16 @@ public class Room {
                 gameCount = 1;
             }
         }
-        boolean hasBanker = false;
-        for (Seat seat : seats) {
-            if (seat.getUserId() == banker) {
-                hasBanker = true;
-                break;
-            }
-        }
-        if (!hasBanker) {
-            banker = seats.get(0).getUserId();
-        }
+//        boolean hasBanker = false;
+//        for (Seat seat : seats) {
+//            if (seat.getUserId() == banker) {
+//                hasBanker = true;
+//                break;
+//            }
+//        }
+//        if (!hasBanker) {
+//            banker = seats.get(0).getUserId();
+//        }
         gameStatus = GameStatus.PLAYING;
         dealCard();
         //骰子
