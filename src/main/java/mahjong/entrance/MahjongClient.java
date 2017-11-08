@@ -29,6 +29,8 @@ public class MahjongClient {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
     public int userId;
     private RedisService redisService;
+    private String nickname;
+    private int round;
 
     private GameBase.BaseConnection.Builder response;
     private MessageReceive messageReceive;
@@ -96,6 +98,7 @@ public class MahjongClient {
                     ApiResponse<User> userResponse = JSON.parseObject(HttpUtil.urlConnectionByRsa(Constant.apiUrl + Constant.userInfoUrl, jsonObject.toJSONString()), new TypeReference<ApiResponse<User>>() {
                     });
                     if (0 == userResponse.getCode()) {
+                        nickname = userResponse.getData().getNickname();
                         messageReceive.roomNo = Integer.valueOf(intoRequest.getRoomNo());
                         if (MahjongTcpService.userClients.containsKey(userId) && MahjongTcpService.userClients.get(userId) != messageReceive) {
                             MahjongTcpService.userClients.get(userId).close(false);
@@ -115,6 +118,7 @@ public class MahjongClient {
                             Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
                             roomCardIntoResponseBuilder.setRoomOwner(room.getRoomOwner());
                             roomCardIntoResponseBuilder.setStarted(0 != room.getGameStatus().compareTo(GameStatus.WAITING));
+                            round = room.getGameCount();
 
                             //房间是否已存在当前用户，存在则为重连
                             final boolean[] find = {false};
@@ -176,7 +180,9 @@ public class MahjongClient {
                                             break;
                                         }
                                         if (0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.PENG)
-                                                || 0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)) {
+                                                || 0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
+                                                || 0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.CHI)
+                                                || 0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.XF_GANG)) {
                                             break;
                                         }
                                     }
@@ -240,6 +246,17 @@ public class MahjongClient {
                                         case PLAY_CARD:
                                             if (operationHistory.getUserId() != userId) {
                                                 room.checkSeatCan(operationHistory, response, userId);
+                                            }
+                                            break;
+                                        case CHI:
+                                        case PENG:
+                                            if (operationHistory.getUserId() == userId) {
+                                                for (Seat seat : room.getSeats()) {
+                                                    if (seat.getUserId() == userId) {
+                                                        room.checkSelfGetCard(response, seat, redisService, 0);
+                                                        break;
+                                                    }
+                                                }
                                             }
                                             break;
                                     }
@@ -392,9 +409,12 @@ public class MahjongClient {
                             case AN_GANG:
                             case BA_GANG:
                                 if (0 < room.getHistoryList().size()) {
-                                    if ((0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
+                                    if (((0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.XF_GANG)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.PENG)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.CHI))
                                             || room.getHistoryList().get(room.getHistoryList().size() - 1).getUserId() != userId)
-                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.XF_GANG)) {
+                                            ) {
                                         return;
                                     }
                                 }
@@ -403,10 +423,12 @@ public class MahjongClient {
                                 break;
                             case XF_GANG:
                                 if (0 < room.getHistoryList().size()) {
-                                    if ((0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
+                                    if (((0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.GET_CARD)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.XF_GANG)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.PENG)
+                                            && 0 != room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.CHI))
                                             || room.getHistoryList().get(room.getHistoryList().size() - 1).getUserId() != userId)
-                                            && (3 != room.getHistoryList().get(room.getHistoryList().size() - 1).getCards().size()
-                                            && 0 == room.getHistoryList().get(room.getHistoryList().size() - 1).getHistoryType().compareTo(OperationHistoryType.XF_GANG))) {
+                                            ) {
                                         return;
                                     }
                                 }
@@ -750,7 +772,7 @@ public class MahjongClient {
                     break;
                 case LOGGER:
                     GameBase.LoggerRequest loggerRequest = GameBase.LoggerRequest.parseFrom(request.getData());
-                    LoggerUtil.logger(userId + "----" + loggerRequest.getLogger());
+                    LoggerUtil.logger("[" + userId + "][" + nickname + "][" + messageReceive.roomNo + "][" + round + "]---" + loggerRequest.getLogger());
                     break;
             }
         } catch (InvalidProtocolBufferException e) {

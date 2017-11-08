@@ -2,7 +2,7 @@ package mahjong.timeout;
 
 
 import mahjong.constant.Constant;
-import mahjong.entrance.MahjongTcpService;
+import mahjong.entrance.MessageReceive;
 
 import java.util.Date;
 
@@ -14,11 +14,11 @@ import java.util.Date;
 public class MessageTimeout extends Thread {
 
     private Date lastMessageDate;
-    private int userId;
+    private MessageReceive messageReceive;
 
-    public MessageTimeout(Date lastMessageDate, int userId) {
+    public MessageTimeout(Date lastMessageDate, MessageReceive messageReceive) {
         this.lastMessageDate = lastMessageDate;
-        this.userId = userId;
+        this.messageReceive = messageReceive;
     }
 
     @Override
@@ -31,9 +31,8 @@ public class MessageTimeout extends Thread {
             }
         }
 
-        if (MahjongTcpService.userClients.containsKey(userId)
-                && 0 == MahjongTcpService.userClients.get(userId).lastMessageDate.compareTo(lastMessageDate)) {
-            MahjongTcpService.userClients.get(userId).close();
+        if (0 == messageReceive.lastMessageDate.compareTo(lastMessageDate)) {
+            messageReceive.close();
         }
     }
 }

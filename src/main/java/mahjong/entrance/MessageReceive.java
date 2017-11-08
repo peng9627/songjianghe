@@ -162,9 +162,7 @@ public class MessageReceive implements Runnable {
                 if (check) {
                     client.receive(GameBase.BaseConnection.parseFrom(data));
                     lastMessageDate = new Date();
-                    if (0 != client.userId) {
-                        new MessageTimeout(lastMessageDate, client.userId).start();
-                    }
+                    new MessageTimeout(lastMessageDate, this).start();
                 }
             }
         } catch (EOFException e) {

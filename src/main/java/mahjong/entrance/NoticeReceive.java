@@ -87,7 +87,6 @@ public class NoticeReceive implements Runnable {
     private void doPost(DataInputStream reader) throws Exception {
         String line = reader.readLine();
         while (line != null) {
-            System.out.println(line);
             line = reader.readLine();
             if ("".equals(line)) {
                 break;
@@ -114,7 +113,7 @@ public class NoticeReceive implements Runnable {
         SocketRequest socketRequest = JSON.parseObject(param, SocketRequest.class);
         ApiResponse apiResponse = new ApiResponse();
         switch (requestPath) {
-            case "1":
+            case "/1":
                 if (redisService.exists("room" + socketRequest.getContent())) {
                     while (!redisService.lock("lock_room" + socketRequest.getContent())) {
                     }
@@ -130,6 +129,10 @@ public class NoticeReceive implements Runnable {
                         apiResponse.setCode(1);
                     }
                 }
+                break;
+            case "/2":
+                apiResponse.setCode(0);
+                apiResponse.setData(MahjongTcpService.userClients.size());
                 break;
         }
         returnData(apiResponse);
