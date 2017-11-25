@@ -233,6 +233,14 @@ public class Room {
         this.gangMo = gangMo;
     }
 
+    public boolean isZhuangying() {
+        return zhuangying;
+    }
+
+    public void setZhuangying(boolean zhuangying) {
+        this.zhuangying = zhuangying;
+    }
+
     public void dealCard() {
         startDate = new Date();
         surplusCards = Card.getAllCard();
@@ -898,12 +906,15 @@ public class Room {
 
         int tempBanker = 0;
 
-        if (1 == winSeats.size() && winSeats.get(0) == banker) {
-            tempBanker = winSeats.get(0);
-
-//        } else if (1 == loseSeats.size()) {
-//            tempBanker = loseSeats.get(0);
-        } else {
+        boolean bankerWin = false;
+        for (Integer i : winSeats) {
+            if (i == banker) {
+                tempBanker = banker;
+                bankerWin = true;
+                break;
+            }
+        }
+        if (!bankerWin) {
             for (Seat seat : seats) {
                 if (seat.getUserId() == banker) {
                     int bankerSeat = 0;
@@ -962,7 +973,7 @@ public class Room {
         }
         zhuangying = banker == tempBanker;
         boolean over = false;
-        if (gameCount == gameTimes) {
+        if (gameCount >= gameTimes) {
             if (count != 2) {
                 boolean allWin = true;
                 for (Seat seat : seats) {
@@ -1257,8 +1268,7 @@ public class Room {
             if ((0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
                     || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.AN_GANG)
                     || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.BA_GANG)
-                    || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.XF_GANG)
-                    || 0 == historyList.get(historyList.size() - 2).getHistoryType().compareTo(OperationHistoryType.XF_GANG))
+                    || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.XF_GANG))
                     && 0 == historyList.get(historyList.size() - 1).getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
                 gangkai = true;
             }
@@ -2205,6 +2215,11 @@ public class Room {
                     seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                             .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
 
+                    GameBase.RoundResponse roundResponse = GameBase.RoundResponse.newBuilder().setID(seat.getUserId()).build();
+                    response.setOperationType(GameBase.OperationType.ROUND).setData(roundResponse.toByteString());
+                    seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
+                            .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
+
                     GameBase.AskResponse.Builder builder = GameBase.AskResponse.newBuilder();
                     //暗杠
                     if (null != MahjongUtil.checkGang(seat.getCards()) && 0 < surplusCards.size()) {
@@ -2223,11 +2238,6 @@ public class Room {
                             response.setOperationType(GameBase.OperationType.ASK).setData(builder.build().toByteString());
                             MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
                         }
-                    } else {
-                        GameBase.RoundResponse roundResponse = GameBase.RoundResponse.newBuilder().setID(seat.getUserId()).build();
-                        response.setOperationType(GameBase.OperationType.ROUND).setData(roundResponse.toByteString());
-                        seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
-                                .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
                     }
                     return;
                 }
@@ -2271,6 +2281,10 @@ public class Room {
                                 .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
                         GameBase.RoundResponse roundResponse = GameBase.RoundResponse.newBuilder().setID(seat.getUserId()).build();
 
+                        response.setOperationType(GameBase.OperationType.ROUND).setData(roundResponse.toByteString());
+                        seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
+                                .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
+
                         GameBase.AskResponse.Builder builder = GameBase.AskResponse.newBuilder();
                         //暗杠
                         if (null != MahjongUtil.checkGang(seat.getCards()) && 0 < surplusCards.size()) {
@@ -2289,10 +2303,6 @@ public class Room {
                                 response.setOperationType(GameBase.OperationType.ASK).setData(builder.build().toByteString());
                                 MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId());
                             }
-                        } else {
-                            response.setOperationType(GameBase.OperationType.ROUND).setData(roundResponse.toByteString());
-                            seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
-                                    .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
                         }
                         return;
                     }
@@ -2314,7 +2324,7 @@ public class Room {
         }
         if (2 == count && !zhuangying) {
             gameCount = gameCount + 1;
-        } else {
+        } else if (2 != count) {
             boolean allWin = true;
             for (Seat seat : seats) {
                 if (!seat.isWin()) {
