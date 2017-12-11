@@ -1142,7 +1142,7 @@ public class Room {
             builder.addOperationId(GameBase.ActionId.AN_GANG);
         }
         //扒杠
-        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < surplusCards.size()) {
+        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards(), seat.getCanNotGang()) && 0 < surplusCards.size()) {
             builder.addOperationId(GameBase.ActionId.BA_GANG);
         }
         if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (gameRules >> 1) % 2 && 0 < surplusCards.size()) {
@@ -1417,6 +1417,7 @@ public class Room {
                     response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.QIANG_GANG_HU)
                             .setID(seat.getUserId()).setData(Mahjong.CardsData.newBuilder().addCards(seat.getCards().size() - 1)
                                     .build().toByteString()).build().toByteString());
+                    settlePlayerData.setSettle(SettleType.QIANG_GANG);
                 } else {
                     historyList.add(new OperationHistory(operationSeat.getUserId(), OperationHistoryType.HU, card));
                     response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.HU)
@@ -1758,7 +1759,7 @@ public class Room {
                         builder.addOperationId(GameBase.ActionId.AN_GANG);
                     }
                     //扒杠
-                    if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < surplusCards.size()) {
+                    if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards(), seat.getCanNotGang()) && 0 < surplusCards.size()) {
                         builder.addOperationId(GameBase.ActionId.BA_GANG);
                     }
                     if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (gameRules >> 1) % 2) {
@@ -2220,13 +2221,17 @@ public class Room {
                     seats.stream().filter(seat1 -> MahjongTcpService.userClients.containsKey(seat1.getUserId()))
                             .forEach(seat1 -> MahjongTcpService.userClients.get(seat1.getUserId()).send(response.build(), seat1.getUserId()));
 
+                    if (3 == containSize && singleFan) {
+                        seat.getCanNotGang().add(card);
+                    }
+
                     GameBase.AskResponse.Builder builder = GameBase.AskResponse.newBuilder();
                     //暗杠
                     if (null != MahjongUtil.checkGang(seat.getCards()) && 0 < surplusCards.size()) {
                         builder.addOperationId(GameBase.ActionId.AN_GANG);
                     }
                     //扒杠
-                    if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < surplusCards.size()) {
+                    if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards(), seat.getCanNotGang()) && 0 < surplusCards.size()) {
                         builder.addOperationId(GameBase.ActionId.BA_GANG);
                     }
                     if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (gameRules >> 1) % 2) {
@@ -2291,7 +2296,7 @@ public class Room {
                             builder.addOperationId(GameBase.ActionId.AN_GANG);
                         }
                         //扒杠
-                        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < surplusCards.size()) {
+                        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards(), seat.getCanNotGang()) && 0 < surplusCards.size()) {
                             builder.addOperationId(GameBase.ActionId.BA_GANG);
                         }
                         if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (gameRules >> 1) % 2) {

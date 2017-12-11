@@ -28,10 +28,10 @@ public class MahjongUtil {
         return null;
     }
 
-    public static Integer checkBaGang(List<Integer> cards, List<Integer> cardList) {
+    public static Integer checkBaGang(List<Integer> cards, List<Integer> cardList, List<Integer> cannotGang) {
         for (Integer card : cardList) {
             for (Integer card1 : cards) {
-                if (card.intValue() == card1) {
+                if (0 == Card.containSize(cannotGang, card1) && card.intValue() == card1) {
                     return card;
                 }
             }

@@ -222,7 +222,7 @@ public class MahjongClient {
                                                             builder.addOperationId(GameBase.ActionId.AN_GANG);
                                                         }
                                                         //扒杠
-                                                        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards()) && 0 < room.getSurplusCards().size()) {
+                                                        if (null != MahjongUtil.checkBaGang(seat.getCards(), seat.getPengCards(), seat.getCanNotGang()) && 0 < room.getSurplusCards().size()) {
                                                             builder.addOperationId(GameBase.ActionId.BA_GANG);
                                                         }
                                                         if (null != MahjongUtil.checkXFGang(seat.getCards(), seat.getXfGangCards()) && 1 == (room.getGameRules() >> 1) % 2) {

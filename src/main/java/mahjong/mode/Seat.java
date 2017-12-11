@@ -52,6 +52,7 @@ public class Seat {
     private List<Integer> canZimo = new ArrayList<>();
     private boolean win;
     private int gangHuScore;
+    private List<Integer> canNotGang = new ArrayList<>();
 
     public int getSeatNo() {
         return seatNo;
@@ -373,6 +374,14 @@ public class Seat {
         this.gangHuScore = gangHuScore;
     }
 
+    public List<Integer> getCanNotGang() {
+        return canNotGang;
+    }
+
+    public void setCanNotGang(List<Integer> canNotGang) {
+        this.canNotGang = canNotGang;
+    }
+
     public void clear() {
         initialCards.clear();
         cards.clear();
@@ -395,5 +404,6 @@ public class Seat {
         canXfGang.clear();
         canZimo.clear();
         gangHuScore = 0;
+        canNotGang.clear();
     }
 }
