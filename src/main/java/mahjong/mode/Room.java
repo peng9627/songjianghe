@@ -1392,7 +1392,7 @@ public class Room {
                 if (gangkai) {
                     settlePlayerData.setSettle(SettleType.HU_GANG_PAO);
                 } else if (ganghou) {
-                    settlePlayerData.setSettle(SettleType.HU_PAO);
+                    settlePlayerData.setSettle(SettleType.HU_GANG_PAO);
                 } else {
                     settlePlayerData.setSettle(SettleType.HU_PAO);
                 }
@@ -1446,7 +1446,7 @@ public class Room {
                     if (gangkai) {
                         settlePlayerData.setSettle(SettleType.GANG_PAO);
                     } else if (ganghou) {
-                        settlePlayerData.setSettle(SettleType.FANG_PAO);
+                        settlePlayerData.setSettle(SettleType.GANG_PAO);
                     } else {
                         settlePlayerData.setSettle(SettleType.FANG_PAO);
                     }
