@@ -914,6 +914,9 @@ public class Room {
                 break;
             }
         }
+        if (0 == winSeats.size()) {
+            bankerWin = true;
+        }
         if (!bankerWin) {
             for (Seat seat : seats) {
                 if (seat.getUserId() == banker) {
@@ -997,7 +1000,9 @@ public class Room {
         seats.stream().filter(seat -> MahjongTcpService.userClients.containsKey(seat.getUserId()))
                 .forEach(seat -> MahjongTcpService.userClients.get(seat.getUserId()).send(response.build(), seat.getUserId()));
         clear(huCard);
-        banker = tempBanker;
+        if (0 != tempBanker) {
+            banker = tempBanker;
+        }
         //结束房间
         if (over) {
             roomOver(response, redisService);
@@ -1262,7 +1267,7 @@ public class Room {
         if (null == operationHistory) {
             return;
         }
-
+        boolean ganghou = false;
         card = operationHistory.getCards().get(0);
         if (historyList.size() > 3) {
             if ((0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
@@ -1272,6 +1277,14 @@ public class Room {
                     && 0 == historyList.get(historyList.size() - 1).getHistoryType().compareTo(OperationHistoryType.PLAY_CARD)) {
                 gangkai = true;
             }
+        }
+        if ((0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.DIAN_GANG)
+                || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.AN_GANG)
+                || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.BA_GANG)
+                || 0 == historyList.get(historyList.size() - 3).getHistoryType().compareTo(OperationHistoryType.XF_GANG))
+                && (0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.BA_GANG)
+                || 0 == operationHistory.getHistoryType().compareTo(OperationHistoryType.XF_GANG))) {
+            ganghou = true;
         }
 
         if (singleFan && 0 < surplusCards.size()) {
@@ -1378,6 +1391,8 @@ public class Room {
                 settlePlayerData.setMajong(card);
                 if (gangkai) {
                     settlePlayerData.setSettle(SettleType.HU_GANG_PAO);
+                } else if (ganghou) {
+                    settlePlayerData.setSettle(SettleType.HU_PAO);
                 } else {
                     settlePlayerData.setSettle(SettleType.HU_PAO);
                 }
@@ -1417,7 +1432,6 @@ public class Room {
                     response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.QIANG_GANG_HU)
                             .setID(seat.getUserId()).setData(Mahjong.CardsData.newBuilder().addCards(seat.getCards().size() - 1)
                                     .build().toByteString()).build().toByteString());
-                    settlePlayerData.setSettle(SettleType.QIANG_GANG);
                 } else {
                     historyList.add(new OperationHistory(operationSeat.getUserId(), OperationHistoryType.HU, card));
                     response.setOperationType(GameBase.OperationType.ACTION).setData(GameBase.BaseAction.newBuilder().setOperationId(GameBase.ActionId.HU)
@@ -1431,6 +1445,8 @@ public class Room {
                 if (seat.getSeatNo() == operationSeatNo) {
                     if (gangkai) {
                         settlePlayerData.setSettle(SettleType.GANG_PAO);
+                    } else if (ganghou) {
+                        settlePlayerData.setSettle(SettleType.FANG_PAO);
                     } else {
                         settlePlayerData.setSettle(SettleType.FANG_PAO);
                     }
