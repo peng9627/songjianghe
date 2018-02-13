@@ -600,7 +600,7 @@ public class MahjongClient {
                         }
                         if (!redisService.exists("dissolve" + messageReceive.roomNo) && !redisService.exists("delete_dissolve" + messageReceive.roomNo)) {
                             GameBase.DissolveApply dissolveApply = GameBase.DissolveApply.newBuilder()
-                                    .setError(GameBase.ErrorCode.SUCCESS).setUserId(userId).setTime(120).build();
+                                    .setError(GameBase.ErrorCode.SUCCESS).setUserId(userId).setTime(60).build();
                             Room room = JSON.parseObject(redisService.getCache("room" + messageReceive.roomNo), Room.class);
                             redisService.addCache("dissolve" + messageReceive.roomNo, "-1" + userId);
                             redisService.addCache("dissolve_time" + messageReceive.roomNo, (System.currentTimeMillis() / 1000) + "");
@@ -661,10 +661,10 @@ public class MahjongClient {
                             GameBase.DissolveReplyResponse.Builder replyResponse = GameBase.DissolveReplyResponse.newBuilder();
                             for (Seat seat : room.getSeats()) {
                                 if (dissolveStatus.contains("-1" + seat.getUserId())) {
-                                    replyResponse.addDissolve(GameBase.Dissolve.newBuilder().setUserId(userId).setAgree(true));
+                                    replyResponse.addDissolve(GameBase.Dissolve.newBuilder().setUserId(seat.getUserId()).setAgree(true));
                                     agree++;
                                 } else if (dissolveStatus.contains("-2" + seat.getUserId())) {
-                                    replyResponse.addDissolve(GameBase.Dissolve.newBuilder().setUserId(userId).setAgree(false));
+                                    replyResponse.addDissolve(GameBase.Dissolve.newBuilder().setUserId(seat.getUserId()).setAgree(false));
                                     disagree++;
                                 }
                             }
@@ -675,19 +675,19 @@ public class MahjongClient {
                                 }
                             }
 
-                            if (disagree + agree == room.getSeats().size()) {
-                                if (disagree > 0) {
-                                    GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(false).build();
-                                    response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
-                                    for (Seat seat : room.getSeats()) {
-                                        if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
-                                            messageReceive.send(response.build(), seat.getUserId());
-                                        }
+                            if (disagree > 0) {
+                                GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(false).build();
+                                response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
+                                for (Seat seat : room.getSeats()) {
+                                    if (MahjongTcpService.userClients.containsKey(seat.getUserId())) {
+                                        messageReceive.send(response.build(), seat.getUserId());
                                     }
-                                    redisService.delete("dissolve" + messageReceive.roomNo);
-                                    redisService.delete("dissolve_time" + messageReceive.roomNo);
-                                    redisService.addCache("delete_dissolve" + messageReceive.roomNo, "", 120);
-                                } else {
+                                }
+                                redisService.delete("dissolve" + messageReceive.roomNo);
+                                redisService.delete("dissolve_time" + messageReceive.roomNo);
+                                redisService.addCache("delete_dissolve" + messageReceive.roomNo, "", 60);
+                            } else if (disagree + agree == room.getSeats().size()) {
+                                {
                                     GameBase.DissolveConfirm dissolveConfirm = GameBase.DissolveConfirm.newBuilder().setDissolved(true).build();
                                     response.setOperationType(GameBase.OperationType.DISSOLVE_CONFIRM).setData(dissolveConfirm.toByteString());
                                     for (Seat seat : room.getSeats()) {

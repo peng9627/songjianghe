@@ -852,12 +852,12 @@ public class Room {
         Mahjong.MahjongResultResponse.Builder resultResponse = Mahjong.MahjongResultResponse.newBuilder();
         resultResponse.setDateTime(new Date().getTime());
 
-        List<Integer> winSeats = new ArrayList<>();
+        List<Seat> winSeats = new ArrayList<>();
         List<Integer> loseSeats = new ArrayList<>();
         for (Seat seat : seats) {
             if (null != seat.getCardResult()) {
                 if (seat.getCardResult().getScore() > 0) {
-                    winSeats.add(seat.getUserId());
+                    winSeats.add(seat);
                 } else if (seat.getCardResult().getScore() < 0) {
                     loseSeats.add(seat.getUserId());
                 }
@@ -906,13 +906,20 @@ public class Room {
 
         int tempBanker = 0;
 
+        List<Seat> arrWinSeats = new ArrayList<>();
         boolean bankerWin = false;
-        for (Integer i : winSeats) {
-            if (i == banker) {
-                tempBanker = banker;
-                bankerWin = true;
-                break;
+        for (Seat seat : winSeats) {
+            if (seat.getSeatNo() > operationSeatNo) {
+                arrWinSeats.add(seat);
             }
+        }
+        for (Seat seat : winSeats) {
+            if (seat.getSeatNo() < operationSeatNo) {
+                arrWinSeats.add(seat);
+            }
+        }
+        if (arrWinSeats.size() > 0 && arrWinSeats.get(0).getUserId() == banker) {
+            bankerWin = true;
         }
         if (0 == winSeats.size()) {
             bankerWin = true;
