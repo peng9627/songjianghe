@@ -924,6 +924,9 @@ public class Room {
         if (0 == winSeats.size()) {
             bankerWin = true;
         }
+        if (1 == winSeats.size() && winSeats.get(0).getUserId() == banker) {
+            bankerWin = true;
+        }
         if (!bankerWin) {
             for (Seat seat : seats) {
                 if (seat.getUserId() == banker) {
